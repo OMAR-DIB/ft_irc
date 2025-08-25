@@ -24,13 +24,37 @@ class Client //-> class for client
 private:
     int Fd;            //-> client file descriptor
     std::string IPadd; //-> client ip address
+    std::string buffer;           // For handling partial commands
+    std::string nickname;         // Client's nickname
+    std::string username;         // Client's username  
+    std::string realname;         // Client's real name
+    bool authenticated;           // Has client sent correct PASS?
+    bool registered;              // Has client completed NICK + USER?
 public:
     Client();          //-> default constructor
     ~Client();          // destructor
-    int GetFd();       //-> getter for fd
-
+    
+    // setter
     void SetFd(int fd);//-> setter for fd
     void setIpAdd(std::string ipadd) ; //-> setter for ipadd
+    void setNickname(const std::string& nick);
+    void setUsername(const std::string& user);
+    void setRealname(const std::string& real);
+    void setAuthenticated(bool auth);
+    void setRegistered(bool reg);
+    
+    // getter
+    int GetFd();       //-> getter for fd
+    std::string getNickname() const ;
+    std::string getUsername() const; 
+    
+    // Auth
+    bool isAuthenticated() const ;
+    bool isRegistered() const;
+
+
+    void appendToBuffer(const std::string& data);
+
 };
 
 #endif
