@@ -1,11 +1,22 @@
 NAME = ircserv
 
-
-SRCS =  main.cpp					\
-		core/Server.cpp				\
-		core/Client.cpp		 		\
-		
-		
+SRCS =  main.cpp							\
+		core/Server.cpp						\
+		core/Client.cpp						\
+		core/Channel.cpp					\
+		core/IRCMessage.cpp					\
+		core/IRCReplies.cpp					\
+		core/Command.cpp					\
+		core/commands/PassCommand.cpp		\
+		core/commands/NickCommand.cpp		\
+		core/commands/UserCommand.cpp		\
+		core/commands/JoinCommand.cpp		\
+		core/commands/PartCommand.cpp		\
+		core/commands/PrivmsgCommand.cpp	\
+		core/commands/ModeCommand.cpp		\
+		core/commands/KickCommand.cpp		\
+		core/commands/InviteCommand.cpp		\
+		core/commands/TopicCommand.cpp
 
 OBJDIR = objs
 OBJCS = $(SRCS:%.cpp=$(OBJDIR)/%.o)

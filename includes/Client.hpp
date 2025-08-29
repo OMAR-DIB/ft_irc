@@ -2,59 +2,76 @@
 #define CLIENT_HPP
 
 #include <iostream>
-#include <vector>       //-> for vector
-#include <sys/socket.h> //-> for socket()
-#include <sys/types.h>  //-> for socket()
-#include <netinet/in.h> //-> for sockaddr_in
-#include <fcntl.h>      //-> for fcntl()
-#include <unistd.h>     //-> for close()
-#include <arpa/inet.h>  //-> for inet_ntoa()
-#include <poll.h>       //-> for poll()
-#include <csignal>      //-> for signal()
-//-------------------------------------------------------//
+#include <vector>
+#include <set>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <poll.h>
+#include <csignal>
 
-#define RED "\e[1;31m" //-> for red color
-#define WHI "\e[0;37m" //-> for white color
-#define GRE "\e[1;32m" //-> for green color
-#define YEL "\e[1;33m" //-> for yellow color
-//-------------------------------------------------------//
+#define RED "\e[1;31m"
+#define WHI "\e[0;37m"
+#define GRE "\e[1;32m"
+#define YEL "\e[1;33m"
 
-class Client //-> class for client
-{
+class Channel;
+
+class Client {
 private:
-    int Fd;            //-> client file descriptor
-    std::string IPadd; //-> client ip address
-    std::string buffer;           // For handling partial commands
-    std::string nickname;         // Client's nickname
-    std::string username;         // Client's username  
-    std::string realname;         // Client's real name
-    bool authenticated;           // Has client sent correct PASS?
-    bool registered;              // Has client completed NICK + USER?
-public:
-    Client();          //-> default constructor
-    ~Client();          // destructor
+    int Fd;
+    std::string IPadd;
+    std::string buffer;
+    std::string nickname;
+    std::string username;
+    std::string realname;
+    std::string hostname;
+    bool authenticated;
+    bool registered;
+    std::set<Channel*> joinedChannels;
     
-    // setter
-    void SetFd(int fd);//-> setter for fd
-    void setIpAdd(std::string ipadd) ; //-> setter for ipadd
+public:
+    Client();
+    ~Client();
+    
+    // Setters
+    void SetFd(int fd);
+    void setIpAdd(std::string ipadd);
     void setNickname(const std::string& nick);
     void setUsername(const std::string& user);
     void setRealname(const std::string& real);
+    void setHostname(const std::string& host);
     void setAuthenticated(bool auth);
     void setRegistered(bool reg);
     
-    // getter
-    int GetFd();       //-> getter for fd
-    std::string getNickname() const ;
-    std::string getUsername() const; 
-    
-    // Auth
-    bool isAuthenticated() const ;
+    // Getters
+    int GetFd() const;
+    std::string getIpAdd() const;
+    std::string getNickname() const;
+    std::string getUsername() const;
+    std::string getRealname() const;
+    std::string getHostname() const;
+    bool isAuthenticated() const;
     bool isRegistered() const;
-
-
+    
+    // Buffer management
     void appendToBuffer(const std::string& data);
-
+    std::string extractCommand();
+    bool hasCompleteCommand() const;
+    void clearBuffer();
+    
+    // Channel management
+    void joinChannel(Channel* channel);
+    void leaveChannel(Channel* channel);
+    bool isInChannel(Channel* channel) const;
+    const std::set<Channel*>& getJoinedChannels() const;
+    
+    // IRC formatting helpers
+    std::string getPrefix() const;
+    std::string getFullIdentifier() const;
 };
 
 #endif

@@ -1,155 +1,298 @@
 #include "../includes/Server.hpp"
+#include "../includes/IRCReplies.hpp"
 #include <cstring>
+#include <ctime>
 
-bool Server::Signal = false; //-> initialize the static boolean
+bool Server::Signal = false;
 
-Server::Server()
-{
-	// Port = 0;
-    SerSocketFd = -1;
-} //-> default constructor
-
-Server::~Server()
-{
-
+Server::Server(int port, const std::string& password) 
+    : Port(port), Password(password), SerSocketFd(-1), serverName("ft_irc.42.fr") {
 }
 
-void Server::SignalHandler(int signum)
-{
-	(void)signum;
-	std::cout << std::endl << "Signal Received!" << std::endl;
-	Server::Signal = true; //-> set the static boolean to true to stop the server
+Server::~Server() {
+    // Clean up channels
+    for (std::map<std::string, Channel*>::iterator it = channels.begin(); it != channels.end(); ++it) {
+        delete it->second;
+    }
+    channels.clear();
 }
 
-void Server::CloseFds(){
-	for(size_t i = 0; i < clients.size(); i++){ //-> close all the clients
-		std::cout << RED << "Client <" << clients[i].GetFd() << "> Disconnected" << WHI << std::endl;
-		close(clients[i].GetFd());
-	}
-	if (SerSocketFd != -1){ //-> close the server socket
-		std::cout << RED << "Server <" << SerSocketFd << "> Disconnected" << WHI << std::endl;
-		close(SerSocketFd);
-	}
-    // std::cout << RED << "Client < > Disconnected" << WHI << std::endl;
+void Server::SignalHandler(int signum) {
+    (void)signum;
+    std::cout << std::endl << "Signal Received!" << std::endl;
+    Server::Signal = true;
 }
 
-void Server::SerSocket()
-{
-	struct sockaddr_in add;
-	struct pollfd NewPoll;
-	add.sin_family = AF_INET; //-> set the address family to ipv4
-	add.sin_port = htons(this->Port); //-> convert the port to network byte order (big endian)
-	add.sin_addr.s_addr = INADDR_ANY; //-> set the address to any local machine address
-
-	SerSocketFd = socket(AF_INET, SOCK_STREAM, 0); //-> create the server socket
-	if(SerSocketFd == -1) //-> check if the socket is created
-		throw(std::runtime_error("faild to create socket"));
-
-	int en = 1;
-	if(setsockopt(SerSocketFd, SOL_SOCKET, SO_REUSEADDR, &en, sizeof(en)) == -1) //-> set the socket option (SO_REUSEADDR) to reuse the address
-		throw(std::runtime_error("faild to set option (SO_REUSEADDR) on socket"));
-	if (fcntl(SerSocketFd, F_SETFL, O_NONBLOCK) == -1) //-> set the socket option (O_NONBLOCK) for non-blocking socket
-		throw(std::runtime_error("faild to set option (O_NONBLOCK) on socket"));
-	if (bind(SerSocketFd, (struct sockaddr *)&add, sizeof(add)) == -1) //-> bind the socket to the address
-		throw(std::runtime_error("faild to bind socket"));
-	if (listen(SerSocketFd, SOMAXCONN) == -1) //-> listen for incoming connections and making the socket a passive socket
-		throw(std::runtime_error("listen() faild"));
-
-	NewPoll.fd = SerSocketFd; //-> add the server socket to the pollfd
-	NewPoll.events = POLLIN; //-> set the event to POLLIN for reading data
-	NewPoll.revents = 0; //-> set the revents to 0
-	fds.push_back(NewPoll); //-> add the server socket to the pollfd
+void Server::CloseFds() {
+    for (size_t i = 0; i < clients.size(); i++) {
+        std::cout << RED << "Client <" << clients[i].GetFd() << "> Disconnected" << WHI << std::endl;
+        close(clients[i].GetFd());
+    }
+    if (SerSocketFd != -1) {
+        std::cout << RED << "Server <" << SerSocketFd << "> Disconnected" << WHI << std::endl;
+        close(SerSocketFd);
+    }
 }
 
-// void Server::ServerInit()
-// {
-// 	this->Port = 4444;
-// 	SerSocket(); //-> create the server socket
+void Server::SerSocket() {
+    struct sockaddr_in add;
+    struct pollfd NewPoll;
+    
+    add.sin_family = AF_INET;
+    add.sin_port = htons(this->Port);
+    add.sin_addr.s_addr = INADDR_ANY;
 
-// 	std::cout << GRE << "Server <" << SerSocketFd << "> Connected" << WHI << std::endl;
-// 	std::cout << "Waiting to accept a connection...\n";
-// }
+    SerSocketFd = socket(AF_INET, SOCK_STREAM, 0);
+    if (SerSocketFd == -1)
+        throw(std::runtime_error("failed to create socket"));
 
-void Server::ServerInit()
-{
-	// std::cout << "running on port " << port << std::endl;
-	this->Port = 4444;
-	SerSocket(); //-> create the server socket
+    int en = 1;
+    if (setsockopt(SerSocketFd, SOL_SOCKET, SO_REUSEADDR, &en, sizeof(en)) == -1)
+        throw(std::runtime_error("failed to set option (SO_REUSEADDR) on socket"));
+    if (fcntl(SerSocketFd, F_SETFL, O_NONBLOCK) == -1)
+        throw(std::runtime_error("failed to set option (O_NONBLOCK) on socket"));
+    if (bind(SerSocketFd, (struct sockaddr *)&add, sizeof(add)) == -1)
+        throw(std::runtime_error("failed to bind socket"));
+    if (listen(SerSocketFd, SOMAXCONN) == -1)
+        throw(std::runtime_error("listen() failed"));
 
-	std::cout << GRE << "Server <" << SerSocketFd << "> Connected" << WHI << std::endl;
-	std::cout << "Waiting to accept a connection...\n";
-
-	while (Server::Signal == false) //-> run the server until the signal is received
-	{
-		if((poll(&fds[0],fds.size(),-1) == -1) && Server::Signal == false) //-> wait for an event
-			throw(std::runtime_error("poll() faild"));
-
-		for (size_t i = 0; i < fds.size(); i++) //-> check all file descriptors
-		{
-			if (fds[i].revents & POLLIN)//-> check if there is data to read
-			{
-				if (fds[i].fd == SerSocketFd)
-					AcceptNewClient(); //-> accept new client
-				else
-					ReceiveNewData(fds[i].fd); //-> receive new data from a registered client
-			}
-		}
-	}
-	CloseFds(); //-> close the file descriptors when the server stops
-}
-void Server::AcceptNewClient()
-{
-	Client cli; //-> create a new client
-	struct sockaddr_in cliadd;
-	struct pollfd NewPoll;
-	socklen_t len = sizeof(cliadd);
-
-	int incofd = accept(SerSocketFd, (sockaddr *)&(cliadd), &len); //-> accept the new client
-	if (incofd == -1)
-		{std::cout << "accept() failed" << std::endl; return;}
-
-	if (fcntl(incofd, F_SETFL, O_NONBLOCK) == -1) //-> set the socket option (O_NONBLOCK) for non-blocking socket
-		{std::cout << "fcntl() failed" << std::endl; return;}
-
-	NewPoll.fd = incofd; //-> add the client socket to the pollfd
-	NewPoll.events = POLLIN; //-> set the event to POLLIN for reading data
-	NewPoll.revents = 0; //-> set the revents to 0
-
-	cli.SetFd(incofd); //-> set the client file descriptor
-	cli.setIpAdd(inet_ntoa((cliadd.sin_addr))); //-> convert the ip address to string and set it
-	clients.push_back(cli); //-> add the client to the vector of clients
-	fds.push_back(NewPoll); //-> add the client socket to the pollfd
-
-	std::cout << GRE << "Client <" << incofd << "> Connected" << WHI << std::endl;
+    NewPoll.fd = SerSocketFd;
+    NewPoll.events = POLLIN;
+    NewPoll.revents = 0;
+    fds.push_back(NewPoll);
 }
 
-void Server::ReceiveNewData(int fd)
-{
-	char buff[1024]; //-> buffer for the received data
-	memset(buff, 0, sizeof(buff)); //-> clear the buffer
+void Server::ServerInit() {
+    SerSocket();
 
-	ssize_t bytes = recv(fd, buff, sizeof(buff) - 1 , 0); //-> receive the data
+    std::cout << GRE << "Server <" << SerSocketFd << "> Connected" << WHI << std::endl;
+    std::cout << "Waiting to accept a connection...\n";
 
-	if(bytes <= 0){ //-> check if the client disconnected
-		std::cout << RED << "Client <" << fd << "> Disconnected" << WHI << std::endl;
-		ClearClients(fd); //-> clear the client
-		close(fd); //-> close the client socket
-	}
+    while (Server::Signal == false) {
+        if ((poll(&fds[0], fds.size(), -1) == -1) && Server::Signal == false)
+            throw(std::runtime_error("poll() failed"));
 
-	else{ //-> print the received data
-		buff[bytes] = '\0';
-		std::cout << YEL << "Client <" << fd << "> Data: " << WHI << buff;
-		//here you can add your code to process the received data: parse, check, authenticate, handle the command, etc...
-	}
+        for (size_t i = 0; i < fds.size(); i++) {
+            if (fds[i].revents & POLLIN) {
+                if (fds[i].fd == SerSocketFd)
+                    AcceptNewClient();
+                else
+                    ReceiveNewData(fds[i].fd);
+            }
+        }
+    }
+    CloseFds();
 }
-void Server::ClearClients(int fd){ //-> clear the clients
-	for(size_t i = 0; i < fds.size(); i++){ //-> remove the client from the pollfd
-		if (fds[i].fd == fd)
-			{fds.erase(fds.begin() + i); break;}
-	}
-	for(size_t i = 0; i < clients.size(); i++){ //-> remove the client from the vector of clients
-		if (clients[i].GetFd() == fd)
-			{clients.erase(clients.begin() + i); break;}
-	}
 
+void Server::AcceptNewClient() {
+    Client cli;
+    struct sockaddr_in cliadd;
+    struct pollfd NewPoll;
+    socklen_t len = sizeof(cliadd);
+
+    int incofd = accept(SerSocketFd, (sockaddr *)&(cliadd), &len);
+    if (incofd == -1) {
+        std::cout << "accept() failed" << std::endl;
+        return;
+    }
+
+    if (fcntl(incofd, F_SETFL, O_NONBLOCK) == -1) {
+        std::cout << "fcntl() failed" << std::endl;
+        return;
+    }
+
+    NewPoll.fd = incofd;
+    NewPoll.events = POLLIN;
+    NewPoll.revents = 0;
+
+    cli.SetFd(incofd);
+    cli.setIpAdd(inet_ntoa((cliadd.sin_addr)));
+    cli.setHostname(cli.getIpAdd()); // Use IP as hostname for now
+    clients.push_back(cli);
+    fds.push_back(NewPoll);
+
+    std::cout << GRE << "Client <" << incofd << "> Connected" << WHI << std::endl;
+}
+
+void Server::ReceiveNewData(int fd) {
+    char buff[1024];
+    memset(buff, 0, sizeof(buff));
+
+    ssize_t bytes = recv(fd, buff, sizeof(buff) - 1, 0);
+
+    if (bytes <= 0) {
+        std::cout << RED << "Client <" << fd << "> Disconnected" << WHI << std::endl;
+        ClearClients(fd);
+        close(fd);
+    } else {
+        buff[bytes] = '\0';
+        Client* client = getClient(fd);
+        if (client) {
+            client->appendToBuffer(buff);
+            
+            // Process complete commands
+            while (client->hasCompleteCommand()) {
+                std::string command = client->extractCommand();
+                if (!command.empty()) {
+                    std::cout << YEL << "Client <" << fd << "> Data: " << WHI << command << std::endl;
+                    processMessage(client, command);
+                }
+            }
+        }
+    }
+}
+
+void Server::processMessage(Client* client, const std::string& message) {
+    if (!client || message.empty()) return;
+    
+    IRCMessage ircMsg = IRCMessage::parse(message);
+    if (!ircMsg.command.empty()) {
+        executeCommand(client, ircMsg);
+    }
+}
+
+void Server::executeCommand(Client* client, const IRCMessage& ircMsg) {
+    Command* cmd = CommandFactory::createCommand(ircMsg.command);
+    
+    if (!cmd) {
+        sendReply(client, ERR_UNKNOWNCOMMAND, ircMsg.command + " :Unknown command");
+        return;
+    }
+    
+    // Check authentication requirements
+    if (cmd->requiresAuth() && !client->isAuthenticated()) {
+        sendReply(client, ERR_NOTREGISTERED, ":You have not registered");
+        delete cmd;
+        return;
+    }
+    
+    // Check registration requirements
+    if (cmd->requiresRegistration() && !client->isRegistered()) {
+        sendReply(client, ERR_NOTREGISTERED, ":You have not registered");
+        delete cmd;
+        return;
+    }
+    
+    try {
+        cmd->execute(this, client, ircMsg);
+    } catch (const std::exception& e) {
+        std::cerr << "Command execution error: " << e.what() << std::endl;
+    }
+    
+    delete cmd;
+}
+
+void Server::ClearClients(int fd) {
+    for (size_t i = 0; i < fds.size(); i++) {
+        if (fds[i].fd == fd) {
+            fds.erase(fds.begin() + i);
+            break;
+        }
+    }
+    for (size_t i = 0; i < clients.size(); i++) {
+        if (clients[i].GetFd() == fd) {
+            clients.erase(clients.begin() + i);
+            break;
+        }
+    }
+}
+
+// Client management
+Client* Server::getClient(int fd) {
+    for (size_t i = 0; i < clients.size(); i++) {
+        if (clients[i].GetFd() == fd) {
+            return &clients[i];
+        }
+    }
+    return NULL;
+}
+
+Client* Server::getClientByNick(const std::string& nickname) {
+    for (size_t i = 0; i < clients.size(); i++) {
+        if (clients[i].getNickname() == nickname) {
+            return &clients[i];
+        }
+    }
+    return NULL;
+}
+
+bool Server::isNickInUse(const std::string& nickname) {
+    return getClientByNick(nickname) != NULL;
+}
+
+// Channel management
+Channel* Server::getChannel(const std::string& name) {
+    std::map<std::string, Channel*>::iterator it = channels.find(name);
+    return (it != channels.end()) ? it->second : NULL;
+}
+
+Channel* Server::createChannel(const std::string& name) {
+    if (channels.find(name) != channels.end()) {
+        return channels[name];
+    }
+    
+    Channel* channel = new Channel(name);
+    channels[name] = channel;
+    return channel;
+}
+
+void Server::removeChannel(const std::string& name) {
+    std::map<std::string, Channel*>::iterator it = channels.find(name);
+    if (it != channels.end()) {
+        delete it->second;
+        channels.erase(it);
+    }
+}
+
+// Utility functions
+void Server::sendMessage(Client* client, const std::string& message) {
+    if (!client) return;
+    
+    std::string fullMessage = message;
+    if (fullMessage.length() < 2 || fullMessage.substr(fullMessage.length() - 2) != "\r\n") {
+        fullMessage += "\r\n";
+    }
+    
+    send(client->GetFd(), fullMessage.c_str(), fullMessage.length(), 0);
+}
+
+void Server::sendReply(Client* client, int code, const std::string& message) {
+    if (!client) return;
+    
+    std::string nick = client->getNickname().empty() ? "*" : client->getNickname();
+    std::string reply = IRCReplies::createNumericReply(code, serverName, nick, message);
+    sendMessage(client, reply);
+}
+
+std::string Server::getServerName() const {
+    return serverName;
+}
+
+bool Server::checkPassword(const std::string& password) const {
+    return password == Password;
+}
+
+void Server::tryCompleteRegistration(Client* client) {
+    if (!client->isAuthenticated() || client->getNickname().empty() || client->getUsername().empty()) {
+        return;
+    }
+    
+    if (!client->isRegistered()) {
+        client->setRegistered(true);
+        sendWelcomeMessages(client);
+    }
+}
+
+void Server::sendWelcomeMessages(Client* client) {
+    if (!client) return;
+    
+    std::string nick = client->getNickname();
+    
+    // Send welcome sequence for HexChat compatibility
+    sendMessage(client, IRCReplies::welcome(serverName, nick));
+    sendMessage(client, IRCReplies::yourHost(serverName, "1.0"));
+    
+    time_t now = time(0);
+    sendMessage(client, IRCReplies::created(serverName, ctime(&now)));
+    sendMessage(client, IRCReplies::myInfo(serverName, "1.0"));
 }
