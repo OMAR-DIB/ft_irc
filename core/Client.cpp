@@ -77,3 +77,24 @@ void Client::appendToBuffer(const std::string &data)
 {
     buffer += data;
 }
+bool Client::hasCompleteCommand()
+{                               // the npos indicate not found
+    return buffer.find("\n") != std::string::npos; 
+}
+
+std::string Client::extractCommand() {
+    size_t pos = buffer.find('\n');
+    if (pos == std::string::npos) {
+        return "";
+    }
+    
+    std::string command = buffer.substr(0, pos);
+    buffer.erase(0, pos + 1);
+    
+    // Remove \r if present (IRC sends \r\n)
+    if (!command.empty() && command[command.length()-1] == '\r') {
+        command.erase(command.length()-1);
+    }
+    
+    return command;
+}

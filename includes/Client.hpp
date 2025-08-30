@@ -54,7 +54,8 @@ public:
 
 
     void appendToBuffer(const std::string& data);
-
+    std::string extractCommand();
+    bool hasCompleteCommand();
 };
 
 #endif
