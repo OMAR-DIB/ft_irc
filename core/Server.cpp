@@ -436,13 +436,57 @@ Client* Server::findClientByNickname(const std::string& nickname){
 
 
 // Normal IRC commands
-void Server::handlePRIVMSG(Client &client, const std::string &command)
-{
-	(void)(command);
-	// For now, just echo back that we received it
-	sendToClient(client.GetFd(), ":server NOTICE " + client.getNickname() + " :PRIVMSG received but not implemented yet\r\n");
-	std::cout << YEL << "Client <" << client.GetFd() << "> sent PRIVMSG (not implemented)" << WHI << std::endl;
+// Replace the stub handlePRIVMSG with this full implementation:
+void Server::handlePRIVMSG(Client& client, const std::string& command) {
+    std::cout << YEL << "Processing PRIVMSG from " << client.getNickname() << WHI << std::endl;
+    
+    // Parse the command: PRIVMSG <target> :<message>
+    size_t firstSpace = command.find(' ');
+    if (firstSpace == std::string::npos) {
+        sendToClient(client.GetFd(), ":server 461 " + client.getNickname() + " PRIVMSG :Not enough parameters\r\n");
+        return;
+    }
+    
+    size_t secondSpace = command.find(' ', firstSpace + 1);
+    if (secondSpace == std::string::npos) {
+        sendToClient(client.GetFd(), ":server 461 " + client.getNickname() + " PRIVMSG :Not enough parameters\r\n");
+        return;
+    }
+    
+    // Extract target nickname
+    std::string target = command.substr(firstSpace + 1, secondSpace - firstSpace - 1);
+    
+    // Extract message (should start with ':')
+    std::string message = command.substr(secondSpace + 1);
+    if (message.empty() || message[0] != ':') {
+        sendToClient(client.GetFd(), ":server 461 " + client.getNickname() + " PRIVMSG :Not enough parameters\r\n");
+        return;
+    }
+    
+    // Remove the ':' from the beginning of the message
+    message = message.substr(1);
+    
+    if (message.empty()) {
+        sendToClient(client.GetFd(), ":server 412 " + client.getNickname() + " :No text to send\r\n");
+        return;
+    }
+    
+    std::cout << "PRIVMSG: [" << client.getNickname() << "] -> [" << target << "]: " << message << std::endl;
+    
+    // Find the target client
+    Client* targetClient = findClientByNickname(target);
+    if (!targetClient) {
+        sendToClient(client.GetFd(), ":server 401 " + client.getNickname() + " " + target + " :No such nick/channel\r\n");
+        return;
+    }
+    
+    // Send the message to the target client
+    std::string fullMessage = ":" + client.getNickname() + "!" + client.getUsername() + "@" + "localhost" + " PRIVMSG " + target + " :" + message + "\r\n";
+    sendToClient(targetClient->GetFd(), fullMessage);
+    
+    std::cout << GRE << "Message delivered from " << client.getNickname() << " to " << target << WHI << std::endl;
 }
+
 
 void Server::handleJOIN(Client &client, const std::string &command)
 {
