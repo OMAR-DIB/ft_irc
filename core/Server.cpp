@@ -424,8 +424,18 @@ void Server::handleUSER(Client &client, const std::string &command)
 	}
 }
 
-// Normal IRC commands
+// find client by nickname
+Client* Server::findClientByNickname(const std::string& nickname){
+	for(size_t i = 0; i < clients.size(); i++){
+		if (clients[i].getNickname() == nickname && clients[i].isRegistered()){
+			return &clients[i];
+		}
+	}
+	return NULL;
+}
 
+
+// Normal IRC commands
 void Server::handlePRIVMSG(Client &client, const std::string &command)
 {
 	(void)(command);

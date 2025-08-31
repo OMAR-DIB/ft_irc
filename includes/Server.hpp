@@ -33,6 +33,9 @@ public:
 	void sendToClient(int fd, const std::string &message);
 
 
+	// find client by nickname
+	Client* findClientByNickname(const std::string& nickname);
+	
 	 // Normal IRC commands
     void handlePRIVMSG(Client& client, const std::string& command);
     void handleJOIN(Client& client, const std::string& command);  
