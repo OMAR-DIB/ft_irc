@@ -14,6 +14,12 @@ Server::Server()
 Server::~Server()
 {
 	std::cout << YEL << "[Server] destructor" << std::endl;
+
+	// Clean up channels
+    for (size_t i = 0; i < channels.size(); i++) {
+        delete channels[i];
+    }
+    channels.clear();
 }
 
 void Server::setPassword(const std::string &pass)
@@ -273,6 +279,10 @@ void Server::processCommand(Client &client, const std::string &command)
 	{
 		handleJOIN(client, command);
 	}
+	else if (cmd == "PART")
+	{
+		handlePART(client, command);
+	}
 	else if (cmd == "QUIT")
 	{
 		handleQUIT(client, command);
@@ -488,13 +498,7 @@ void Server::handlePRIVMSG(Client& client, const std::string& command) {
 }
 
 
-void Server::handleJOIN(Client &client, const std::string &command)
-{
-	(void)(command);
-	// For now, just echo back that we received it
-	sendToClient(client.GetFd(), ":server NOTICE " + client.getNickname() + " :JOIN received but not implemented yet\r\n");
-	std::cout << YEL << "Client <" << client.GetFd() << "> sent JOIN (not implemented)" << WHI << std::endl;
-}
+
 
 void Server::handleQUIT(Client &client, const std::string &command)
 {
@@ -505,15 +509,189 @@ void Server::handleQUIT(Client &client, const std::string &command)
 	ClearClients(client.GetFd());
 }
 
-void Server::handlePING(Client &client, const std::string &command)
-{
-	std::vector<std::string> tokens = splitCommand(command);
-	if (tokens.size() > 1)
-	{
-		sendToClient(client.GetFd(), ":server PONG server :" + tokens[1] + "\r\n");
-	}
-	else
-	{
-		sendToClient(client.GetFd(), ":server PONG server\r\n");
-	}
+
+
+void Server::handlePING(Client& client, const std::string& command) {
+    std::vector<std::string> tokens = splitCommand(command);
+    
+    std::cout << YEL << "PING from " << client.getNickname() << WHI << std::endl;
+    
+    // PING <server> or just PING
+    std::string pongMsg = ":server PONG server";
+    if (tokens.size() > 1) {
+        pongMsg += " :" + tokens[1];
+    }
+    pongMsg += "\r\n";
+    
+    sendToClient(client.GetFd(), pongMsg);
+    std::cout << GRE << "PONG sent to " << client.getNickname() << WHI << std::endl;
 }
+// void Server::handlePING(Client &client, const std::string &command)
+// {
+// 	std::vector<std::string> tokens = splitCommand(command);
+// 	if (tokens.size() > 1)
+// 	{
+// 		sendToClient(client.GetFd(), ":server PONG server :" + tokens[1] + "\r\n");
+// 	}
+// 	else
+// 	{
+// 		sendToClient(client.GetFd(), ":server PONG server\r\n");
+// 	}
+// }
+
+
+// Channel management methods:
+Channel* Server::findChannel(const std::string& channelName) {
+    for (size_t i = 0; i < channels.size(); i++) {
+        if (channels[i]->getName() == channelName) {
+            return channels[i];
+        }
+    }
+    return NULL;
+}
+
+Channel* Server::createChannel(const std::string& channelName) {
+    Channel* channel = new Channel(channelName);
+    channels.push_back(channel);
+    std::cout << GRE << "Created channel: " << channelName << WHI << std::endl;
+    return channel;
+}
+
+void Server::removeChannel(Channel* channel) {
+    if (channel && channel->isEmpty()) {
+        std::vector<Channel*>::iterator it = std::find(channels.begin(), channels.end(), channel);
+        if (it != channels.end()) {
+            std::cout << RED << "Removing empty channel: " << channel->getName() << WHI << std::endl;
+            channels.erase(it);
+            delete channel;
+        }
+    }
+}
+
+void Server::broadcastToChannel(Channel* channel, const std::string& message, Client* sender) {
+    if (!channel) return;
+    
+    const std::vector<Client*>& clients = channel->getClients();
+    for (size_t i = 0; i < clients.size(); i++) {
+        // Don't send message back to sender
+        if (clients[i] != sender) {
+            sendToClient(clients[i]->GetFd(), message);
+        }
+    }
+}
+
+
+void Server::handleJOIN(Client& client, const std::string& command) {
+    std::vector<std::string> tokens = splitCommand(command);
+    
+    if (tokens.size() < 2) {
+        sendToClient(client.GetFd(), ":server 461 " + client.getNickname() + " JOIN :Not enough parameters\r\n");
+        return;
+    }
+    
+    std::string channelName = tokens[1];
+    
+    // Validate channel name (must start with # or &)
+    if (channelName.empty() || (channelName[0] != '#' && channelName[0] != '&')) {
+        sendToClient(client.GetFd(), ":server 403 " + client.getNickname() + " " + channelName + " :No such channel\r\n");
+        return;
+    }
+    
+    std::cout << YEL << "Client " << client.getNickname() << " joining channel " << channelName << WHI << std::endl;
+    
+    // Find or create channel
+    Channel* channel = findChannel(channelName);
+    if (!channel) {
+        channel = createChannel(channelName);
+    }
+    
+    // Check if client is already in channel
+    if (channel->hasClient(&client)) {
+        // Already in channel - just ignore (some clients send duplicate JOINs)
+        return;
+    }
+    
+    // Add client to channel
+    channel->addClient(&client);
+    
+    // Send JOIN confirmation to client
+    std::string joinMsg = ":" + client.getNickname() + "!" + client.getUsername() + "@localhost JOIN " + channelName + "\r\n";
+    sendToClient(client.GetFd(), joinMsg);
+    
+    // Broadcast JOIN to other channel members
+    broadcastToChannel(channel, joinMsg, &client);
+    
+    // Send topic if exists
+    if (!channel->getTopic().empty()) {
+        sendToClient(client.GetFd(), ":server 332 " + client.getNickname() + " " + channelName + " :" + channel->getTopic() + "\r\n");
+    }
+    
+    // Send names list (who's in the channel)
+    sendToClient(client.GetFd(), ":server 353 " + client.getNickname() + " = " + channelName + " :" + channel->getClientsList() + "\r\n");
+    sendToClient(client.GetFd(), ":server 366 " + client.getNickname() + " " + channelName + " :End of /NAMES list\r\n");
+    
+    std::cout << GRE << "Client " << client.getNickname() << " joined " << channelName 
+              << " (" << channel->getClientCount() << " clients)" << WHI << std::endl;
+}
+
+
+void Server::handlePART(Client& client, const std::string& command) {
+    std::vector<std::string> tokens = splitCommand(command);
+    
+    if (tokens.size() < 2) {
+        sendToClient(client.GetFd(), ":server 461 " + client.getNickname() + " PART :Not enough parameters\r\n");
+        return;
+    }
+    
+    std::string channelName = tokens[1];
+    
+    // Find channel
+    Channel* channel = findChannel(channelName);
+    if (!channel) {
+        sendToClient(client.GetFd(), ":server 403 " + client.getNickname() + " " + channelName + " :No such channel\r\n");
+        return;
+    }
+    
+    // Check if client is in channel
+    if (!channel->hasClient(&client)) {
+        sendToClient(client.GetFd(), ":server 442 " + client.getNickname() + " " + channelName + " :You're not on that channel\r\n");
+        return;
+    }
+    
+    // Extract part message if provided
+    std::string partMsg;
+    if (tokens.size() > 2) {
+        partMsg = tokens[2];
+        if (partMsg[0] == ':') {
+            partMsg = partMsg.substr(1);
+        }
+        // Rebuild message from remaining tokens
+        for (size_t i = 3; i < tokens.size(); i++) {
+            partMsg += " " + tokens[i];
+        }
+    }
+    
+    std::cout << YEL << "Client " << client.getNickname() << " leaving channel " << channelName << WHI << std::endl;
+    
+    // Create PART message
+    std::string fullPartMsg = ":" + client.getNickname() + "!" + client.getUsername() + "@localhost PART " + channelName;
+    if (!partMsg.empty()) {
+        fullPartMsg += " :" + partMsg;
+    }
+    fullPartMsg += "\r\n";
+    
+    // Send PART to client and broadcast to channel
+    sendToClient(client.GetFd(), fullPartMsg);
+    broadcastToChannel(channel, fullPartMsg, &client);
+    
+    // Remove client from channel
+    channel->removeClient(&client);
+    
+    // Remove empty channel
+    if (channel->isEmpty()) {
+        removeChannel(channel);
+    }
+    
+    std::cout << GRE << "Client " << client.getNickname() << " left " << channelName << WHI << std::endl;
+}
+

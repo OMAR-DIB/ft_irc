@@ -2,6 +2,7 @@
 #define SERVER_HPP
 
 #include "Client.hpp"
+#include "Channel.hpp" 
 
 class Server //-> class for server
 {
@@ -13,6 +14,7 @@ private:
 	// *pollfd* : to check for events on multiple file descriptors without blocking your program
 	std::vector<struct pollfd> fds; //-> vector of pollfd
 	std::string password;			// Server password
+	std::vector<Channel*> channels;  // NEW: Channel storage
 public:
 	Server();							   //-> default constructor
 	~Server();							   //-> destructor
@@ -38,7 +40,19 @@ public:
 	
 	 // Normal IRC commands
     void handlePRIVMSG(Client& client, const std::string& command);
+
+
+
+	// NEW: Channel management methods
+    Channel* findChannel(const std::string& channelName);
+    Channel* createChannel(const std::string& channelName);
+    void removeChannel(Channel* channel);
+    void broadcastToChannel(Channel* channel, const std::string& message, Client* sender = NULL);
+
+
+
     void handleJOIN(Client& client, const std::string& command);  
+	void handlePART(Client& client, const std::string& command);
     void handleQUIT(Client& client, const std::string& command);
     void handlePING(Client& client, const std::string& command);
 };

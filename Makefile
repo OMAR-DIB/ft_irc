@@ -4,7 +4,7 @@ NAME = ircserv
 SRCS =  main.cpp					\
 		core/Server.cpp				\
 		core/Client.cpp		 		\
-		
+		core/Channel.cpp			\
 		
 
 OBJDIR = objs
