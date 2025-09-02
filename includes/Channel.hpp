@@ -12,7 +12,7 @@ private:
     std::string name;
     std::string topic;
     std::vector<Client*> clients;
-    std::vector<Client*> operators;  // Channel operators
+    std::vector<Client*> operators;  // Channel admin with @ before name
     
 public:
     Channel(const std::string& channelName);
