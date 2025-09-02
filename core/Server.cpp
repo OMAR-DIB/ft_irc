@@ -463,7 +463,7 @@ void Server::handlePRIVMSG(Client& client, const std::string& command) {
         return;
     }
     
-    // Extract target nickname
+    // Extract target (channel or user)
     std::string target = command.substr(firstSpace + 1, secondSpace - firstSpace - 1);
     
     // Extract message (should start with ':')
@@ -483,6 +483,38 @@ void Server::handlePRIVMSG(Client& client, const std::string& command) {
     
     std::cout << "PRIVMSG: [" << client.getNickname() << "] -> [" << target << "]: " << message << std::endl;
     
+    // Check if target is a channel (starts with # or &)
+    if (target[0] == '#' || target[0] == '&') {
+        handleChannelMessage(client, target, message);
+    } else {
+        handleUserMessage(client, target, message);
+    }
+}
+
+void Server::handleChannelMessage(Client& client, const std::string& channelName, const std::string& message) {
+    // Find the channel
+    Channel* channel = findChannel(channelName);
+    if (!channel) {
+        sendToClient(client.GetFd(), ":server 403 " + client.getNickname() + " " + channelName + " :No such channel\r\n");
+        return;
+    }
+    
+    // Check if client is in the channel
+    if (!channel->hasClient(&client)) {
+        sendToClient(client.GetFd(), ":server 404 " + client.getNickname() + " " + channelName + " :Cannot send to channel\r\n");
+        return;
+    }
+    
+    // Create the message to broadcast
+    std::string fullMessage = ":" + client.getNickname() + "!" + client.getUsername() + "@localhost PRIVMSG " + channelName + " :" + message + "\r\n";
+    
+    // Broadcast to all channel members except sender
+    broadcastToChannel(channel, fullMessage, &client);
+    
+    std::cout << GRE << "Channel message delivered: " << client.getNickname() << " -> " << channelName << ": " << message << WHI << std::endl;
+}
+
+void Server::handleUserMessage(Client& client, const std::string& target, const std::string& message) {
     // Find the target client
     Client* targetClient = findClientByNickname(target);
     if (!targetClient) {
@@ -491,10 +523,10 @@ void Server::handlePRIVMSG(Client& client, const std::string& command) {
     }
     
     // Send the message to the target client
-    std::string fullMessage = ":" + client.getNickname() + "!" + client.getUsername() + "@" + "localhost" + " PRIVMSG " + target + " :" + message + "\r\n";
+    std::string fullMessage = ":" + client.getNickname() + "!" + client.getUsername() + "@localhost PRIVMSG " + target + " :" + message + "\r\n";
     sendToClient(targetClient->GetFd(), fullMessage);
     
-    std::cout << GRE << "Message delivered from " << client.getNickname() << " to " << target << WHI << std::endl;
+    std::cout << GRE << "Private message delivered: " << client.getNickname() << " -> " << target << ": " << message << WHI << std::endl;
 }
 
 

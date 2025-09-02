@@ -36,7 +36,10 @@ const std::vector<Client *> &Channel::getOperators() const
 }
 
 // Setters
-void Channel::setTopic(const std::string &newTopic) { topic = newTopic; }
+void Channel::setTopic(const std::string &newTopic)
+{ 
+    topic = newTopic;
+}
 
 // Client management
 void Channel::addClient(Client *client)

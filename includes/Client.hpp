@@ -35,7 +35,7 @@ public:
     ~Client();          // destructor
     
     // setter
-    void SetFd(int fd);//-> setter for fd
+    void SetFd(int fd);                //-> setter for fd
     void setIpAdd(std::string ipadd) ; //-> setter for ipadd
     void setNickname(const std::string& nick);
     void setUsername(const std::string& user);
