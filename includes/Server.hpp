@@ -58,6 +58,10 @@ public:
 
 	void handleChannelMessage(Client& client, const std::string& channelName, const std::string& message);
 	void handleUserMessage(Client& client, const std::string& target, const std::string& message);
+
+
+	// operator commands
+    void handleTOPIC(Client& client, const std::string& command);
 };
 
 #endif

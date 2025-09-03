@@ -725,3 +725,67 @@ void Server::handlePART(Client& client, const std::string& command) {
     
     std::cout << GRE << "Client " << client.getNickname() << " left " << channelName << WHI << std::endl;
 }
+void Server::handleTOPIC(Client& client, const std::string& command) {
+    std::vector<std::string> tokens = splitCommand(command);
+    
+    if (tokens.size() < 2) {
+        sendToClient(client.GetFd(), ":server 461 " + client.getNickname() + " TOPIC :Not enough parameters\r\n");
+        return;
+    }
+    
+    std::string channelName = tokens[1];
+    
+    // Find channel
+    Channel* channel = findChannel(channelName);
+    if (!channel) {
+        sendToClient(client.GetFd(), ":server 403 " + client.getNickname() + " " + channelName + " :No such channel\r\n");
+        return;
+    }
+    
+    // Check if client is in channel
+    if (!channel->hasClient(&client)) {
+        sendToClient(client.GetFd(), ":server 442 " + client.getNickname() + " " + channelName + " :You're not on that channel\r\n");
+        return;
+    }
+    
+    // If no topic provided, show current topic
+    if (tokens.size() == 2) {
+        if (channel->getTopic().empty()) {
+            sendToClient(client.GetFd(), ":server 331 " + client.getNickname() + " " + channelName + " :No topic is set\r\n");
+        } else {
+            sendToClient(client.GetFd(), ":server 332 " + client.getNickname() + " " + channelName + " :" + channel->getTopic() + "\r\n");
+        }
+        return;
+    }
+    
+    // Client wants to set topic - check if they're an operator
+    if (!channel->isOperator(&client)) {
+        sendToClient(client.GetFd(), ":server 482 " + client.getNickname() + " " + channelName + " :You're not channel operator\r\n");
+        std::cout << RED << "Client " << client.getNickname() << " tried to set topic without operator privileges" << WHI << std::endl;
+        return;
+    }
+    
+    // Extract new topic
+    std::string newTopic = tokens[2];
+    if (newTopic[0] == ':') {
+        newTopic = newTopic.substr(1);
+    }
+    
+    // Rebuild topic from remaining tokens
+    for (size_t i = 3; i < tokens.size(); i++) {
+        newTopic += " " + tokens[i];
+    }
+    
+    // Set the new topic
+    channel->setTopic(newTopic);
+    
+    // Broadcast topic change to all channel members
+    std::string topicMsg = ":" + client.getNickname() + "!" + client.getUsername() + "@localhost TOPIC " + channelName + " :" + newTopic + "\r\n";
+    
+    const std::vector<Client*>& channelClients = channel->getClients();
+    for (size_t i = 0; i < channelClients.size(); i++) {
+        sendToClient(channelClients[i]->GetFd(), topicMsg);
+    }
+    
+    std::cout << GRE << "Topic changed in " << channelName << " by " << client.getNickname() << ": " << newTopic << WHI << std::endl;
+}
