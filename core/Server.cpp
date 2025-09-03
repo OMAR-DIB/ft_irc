@@ -666,7 +666,6 @@ void Server::handleJOIN(Client& client, const std::string& command) {
               << " (" << channel->getClientCount() << " clients)" << WHI << std::endl;
 }
 
-
 void Server::handlePART(Client& client, const std::string& command) {
     std::vector<std::string> tokens = splitCommand(command);
     
@@ -726,4 +725,3 @@ void Server::handlePART(Client& client, const std::string& command) {
     
     std::cout << GRE << "Client " << client.getNickname() << " left " << channelName << WHI << std::endl;
 }
-

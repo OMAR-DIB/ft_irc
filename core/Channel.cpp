@@ -58,18 +58,27 @@ void Channel::addClient(Client *client)
 
 void Channel::removeClient(Client *client)
 {
+    // Check if this client was an operator before removing
+    bool wasOperator = isOperator(client);
+    
     // Remove from clients list
-    std::vector<Client *>::iterator it = std::find(clients.begin(), clients.end(), client);
-    if (it != clients.end())
-    {
+    std::vector<Client*>::iterator it = std::find(clients.begin(), clients.end(), client);
+    if (it != clients.end()) {
         clients.erase(it);
     }
-
+    
     // Remove from operators list if present
     it = std::find(operators.begin(), operators.end(), client);
-    if (it != operators.end())
-    {
+    if (it != operators.end()) {
         operators.erase(it);
+    }
+    
+    // CRITICAL: If we removed the last operator and channel isn't empty, promote someone
+    if (wasOperator && operators.empty() && !clients.empty()) {
+        // Promote the first remaining client to operator
+        addOperator(clients[0]);
+        std::cout << GRE << "Auto-promoted " << clients[0]->getNickname() 
+                  << " to operator in " << name << WHI << std::endl;
     }
 }
 
