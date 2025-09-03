@@ -1,3 +1,20 @@
+// =========================
+// Server.hpp (CHANGES REQUIRED)
+// =========================
+
+// Make sure to change the declaration of the clients vector from
+//    std::vector<Client> clients;
+// to
+//    std::vector<Client*> clients;
+// and update any forward declarations / includes accordingly.
+
+// Also add a helper prototype:
+// Client* findClientByFd(int fd);
+
+// =========================
+// Server.cpp (FULL UPDATED - Fix A: Server stores Client* )
+// =========================
+
 #include "../includes/Server.hpp"
 #include <cstring>
 #include <sstream>
@@ -8,7 +25,6 @@ bool Server::Signal = false; //-> initialize the static boolean
 Server::Server()
 {
 	std::cout << YEL << "[Server] constructor" << std::endl;
-	// Port = 0;
 	SerSocketFd = -1;
 }
 
@@ -22,6 +38,17 @@ Server::~Server()
 		delete channels[i];
 	}
 	channels.clear();
+
+	// Clean up clients (they are pointers now)
+	for (size_t i = 0; i < clients.size(); i++)
+	{
+		if (clients[i])
+		{
+			close(clients[i]->GetFd());
+			delete clients[i];
+		}
+	}
+	clients.clear();
 }
 
 void Server::setPassword(const std::string &pass)
@@ -41,15 +68,20 @@ void Server::CloseFds()
 {
 	for (size_t i = 0; i < clients.size(); i++)
 	{ //-> close all the clients
-		std::cout << RED << "Client <" << clients[i].GetFd() << "> Disconnected" << WHI << std::endl;
-		close(clients[i].GetFd());
+		if (clients[i])
+		{
+			std::cout << RED << "Client <" << clients[i]->GetFd() << "> Disconnected" << WHI << std::endl;
+			close(clients[i]->GetFd());
+			delete clients[i];
+		}
 	}
+	clients.clear();
+
 	if (SerSocketFd != -1)
 	{ //-> close the server socket
 		std::cout << RED << "Server <" << SerSocketFd << "> Disconnected" << WHI << std::endl;
 		close(SerSocketFd);
 	}
-	// std::cout << RED << "Client < > Disconnected" << WHI << std::endl;
 }
 
 void Server::ServerSocket()
@@ -82,15 +114,9 @@ void Server::ServerSocket()
 
 void Server::ServerInit(int port)
 {
-	// std::cout << "running on port " << port << std::endl;
 	this->Port = port;
 	ServerSocket(); //-> create the server socket
-	/*
-	 0 : stdin
-	 1 : stdout
-	 2 : stdError
-	 so server will start from 3
-	*/
+
 	std::cout << GRE << "Server <" << SerSocketFd << "> Connected" << WHI << std::endl;
 	std::cout << "Waiting to accept a connection...\n";
 
@@ -115,9 +141,10 @@ void Server::ServerInit(int port)
 	}
 	CloseFds(); //-> close the file descriptors when the server stops
 }
+
 void Server::AcceptNewClient()
 {
-	Client cli; //-> create a new client
+	Client *cli = new Client(); // allocate on heap
 	struct sockaddr_in cliadd;
 	struct pollfd NewPoll;
 	socklen_t len = sizeof(cliadd);
@@ -126,12 +153,15 @@ void Server::AcceptNewClient()
 	if (incofd == -1)
 	{
 		std::cout << "accept() failed" << std::endl;
+		delete cli;
 		return;
 	}
 
 	if (fcntl(incofd, F_SETFL, O_NONBLOCK) == -1) //-> set the socket option (O_NONBLOCK) for non-blocking socket
 	{
 		std::cout << "fcntl() failed" << std::endl;
+		close(incofd);
+		delete cli;
 		return;
 	}
 
@@ -139,10 +169,10 @@ void Server::AcceptNewClient()
 	NewPoll.events = POLLIN; //-> set the event to POLLIN for reading data
 	NewPoll.revents = 0;	 //-> set the revents to 0
 
-	cli.SetFd(incofd);							//-> set the client file descriptor
-	cli.setIpAdd(inet_ntoa((cliadd.sin_addr))); //-> convert the ip address to string and set it
-	clients.push_back(cli);						//-> add the client to the vector of clients
-	fds.push_back(NewPoll);						//-> add the client socket to the pollfd
+	cli->SetFd(incofd);							 //-> set the client file descriptor
+	cli->setIpAdd(inet_ntoa((cliadd.sin_addr))); //-> convert the ip address to string and set it
+	clients.push_back(cli);						 //-> add the client pointer to the vector of clients
+	fds.push_back(NewPoll);						 //-> add the client socket to the pollfd
 
 	std::cout << GRE << "Client <" << incofd << "> Connected" << WHI << std::endl;
 }
@@ -158,32 +188,32 @@ void Server::ReceiveNewData(int fd)
 		std::cout << RED << "Client <" << fd << "> Disconnected" << WHI << std::endl;
 		ClearClients(fd);
 		close(fd);
-		return; // Add return here!
+		return;
 	}
 
 	buff[bytes] = '\0';
 	std::cout << YEL << "Client <" << fd << "> Raw Data: " << WHI << buff;
 
-	// MISSING CODE: Find the client and process the data
+	// Find the client and process the data (clients are pointers now)
 	for (size_t i = 0; i < clients.size(); i++)
 	{
-		if (clients[i].GetFd() == fd)
+		if (clients[i] && clients[i]->GetFd() == fd)
 		{
 			// Show client state for debugging
-			std::cout << "Client state - Auth: " << (clients[i].isAuthenticated() ? "YES" : "NO")
-					  << ", Registered: " << (clients[i].isRegistered() ? "YES" : "NO")
-					  << ", Nick: [" << clients[i].getNickname() << "]" << std::endl;
+			std::cout << "Client state - Auth: " << (clients[i]->isAuthenticated() ? "YES" : "NO")
+					  << ", Registered: " << (clients[i]->isRegistered() ? "YES" : "NO")
+					  << ", Nick: [" << clients[i]->getNickname() << "]" << std::endl;
 
 			// Add data to client's buffer
-			clients[i].appendToBuffer(std::string(buff));
+			clients[i]->appendToBuffer(std::string(buff));
 
 			// Process all complete commands
-			while (clients[i].hasCompleteCommand())
+			while (clients[i]->hasCompleteCommand())
 			{
-				std::string command = clients[i].extractCommand();
+				std::string command = clients[i]->extractCommand();
 				if (!command.empty())
 				{
-					processCommand(clients[i], command);
+					processCommand(*clients[i], command);
 				}
 			}
 			break;
@@ -195,22 +225,24 @@ void Server::ClearClients(int fd)
 {
 	std::cout << RED << "=== CLEANUP START: Client fd=" << fd << " ===" << WHI << std::endl;
 
-	// Step 1: Find the disconnecting client (DON'T store pointer yet!)
+	// Step 1: Find the disconnecting client (store index and pointer)
 	int clientIndex = -1;
+	Client *clientPtr = NULL;
 	std::string clientNick, clientUser;
 
 	for (size_t i = 0; i < clients.size(); i++)
 	{
-		if (clients[i].GetFd() == fd)
+		if (clients[i] && clients[i]->GetFd() == fd)
 		{
 			clientIndex = i;
-			clientNick = clients[i].getNickname();
-			clientUser = clients[i].getUsername();
+			clientPtr = clients[i];
+			clientNick = clientPtr->getNickname();
+			clientUser = clientPtr->getUsername();
 			break;
 		}
 	}
 
-	if (clientIndex == -1)
+	if (clientIndex == -1 || clientPtr == NULL)
 	{
 		std::cout << RED << "ERROR: Client with fd " << fd << " not found!" << WHI << std::endl;
 		return;
@@ -223,11 +255,11 @@ void Server::ClearClients(int fd)
 	for (size_t i = 0; i < channels.size(); i++)
 	{
 		std::cout << "Channel " << channels[i]->getName() << ":";
-		const std::vector<Client *> &clients = channels[i]->getClients();
-		for (size_t j = 0; j < clients.size(); j++)
+		const std::vector<Client *> &chClients = channels[i]->getClients();
+		for (size_t j = 0; j < chClients.size(); j++)
 		{
-			std::cout << " " << clients[j]->getNickname() << "(fd:" << clients[j]->GetFd() << ")";
-			if (channels[i]->isOperator(clients[j]))
+			std::cout << " " << chClients[j]->getNickname() << "(fd:" << chClients[j]->GetFd() << ")";
+			if (channels[i]->isOperator(chClients[j]))
 				std::cout << "@";
 		}
 		std::cout << std::endl;
@@ -236,7 +268,7 @@ void Server::ClearClients(int fd)
 	// Step 3: Create quit message
 	std::string quitMsg = ":" + clientNick + "!" + clientUser + "@localhost QUIT :Client disconnected\r\n";
 
-	// Step 4: CRITICAL FIX - Clean channels using FD comparison, not pointers
+	// Step 4: Remove client from channels using fd comparison and broadcast
 	std::vector<Channel *> channelsToDelete;
 
 	for (size_t i = 0; i < channels.size(); i++)
@@ -244,15 +276,12 @@ void Server::ClearClients(int fd)
 		Channel *channel = channels[i];
 		std::cout << YEL << "Checking channel " << channel->getName() << WHI << std::endl;
 
-		// Find client in channel by FD (safer than pointer comparison)
-		bool foundInChannel = false;
 		const std::vector<Client *> &channelClients = channel->getClients();
 
 		for (size_t j = 0; j < channelClients.size(); j++)
 		{
-			if (channelClients[j]->GetFd() == fd)
+			if (channelClients[j] && channelClients[j]->GetFd() == fd)
 			{
-				foundInChannel = true;
 				std::cout << GRE << "  -> " << clientNick << " IS in " << channel->getName() << WHI << std::endl;
 
 				// Broadcast QUIT to OTHER members
@@ -261,13 +290,8 @@ void Server::ClearClients(int fd)
 				// Remove using the CURRENT valid pointer
 				channel->removeClient(channelClients[j]);
 
-				break;
+				break; // client removed from this channel; move on
 			}
-		}
-
-		if (!foundInChannel)
-		{
-			std::cout << "  -> " << clientNick << " not in " << channel->getName() << WHI << std::endl;
 		}
 
 		// Check if channel is now empty
@@ -304,17 +328,17 @@ void Server::ClearClients(int fd)
 	for (size_t i = 0; i < channels.size(); i++)
 	{
 		std::cout << "Channel " << channels[i]->getName() << ":";
-		const std::vector<Client *> &clients = channels[i]->getClients();
-		for (size_t j = 0; j < clients.size(); j++)
+		const std::vector<Client *> &chClients = channels[i]->getClients();
+		for (size_t j = 0; j < chClients.size(); j++)
 		{
-			std::cout << " " << clients[j]->getNickname() << "(fd:" << clients[j]->GetFd() << ")";
-			if (channels[i]->isOperator(clients[j]))
+			std::cout << " " << chClients[j]->getNickname() << "(fd:" << chClients[j]->GetFd() << ")";
+			if (channels[i]->isOperator(chClients[j]))
 				std::cout << "@";
 		}
 		std::cout << std::endl;
 	}
 
-	// Step 7: Remove from server's vectors AFTER channel cleanup
+	// Step 7: Remove from server's fds vector
 	for (size_t i = 0; i < fds.size(); i++)
 	{
 		if (fds[i].fd == fd)
@@ -324,10 +348,14 @@ void Server::ClearClients(int fd)
 		}
 	}
 
-	clients.erase(clients.begin() + clientIndex); // Use stored index
+	// Step 8: Remove and delete client pointer from server->clients
+	Client *toDelete = clients[clientIndex];
+	clients.erase(clients.begin() + clientIndex);
+	delete toDelete;
 
 	std::cout << GRE << "=== CLEANUP COMPLETE for " << clientNick << " ===" << WHI << std::endl;
 }
+
 void Server::processCommand(Client &client, const std::string &command)
 {
 	std::cout << "Processing command: [" << command << "]" << std::endl;
@@ -505,7 +533,7 @@ void Server::handleNICK(Client &client, const std::string &command)
 	// Check if nickname is already taken
 	for (size_t i = 0; i < clients.size(); i++)
 	{
-		if (clients[i].getNickname() == nick && clients[i].GetFd() != client.GetFd())
+		if (clients[i] && clients[i]->getNickname() == nick && clients[i]->GetFd() != client.GetFd())
 		{
 			sendToClient(client.GetFd(), ":server 433 * " + nick + " :Nickname is already in use\r\n");
 			return;
@@ -569,16 +597,26 @@ Client *Server::findClientByNickname(const std::string &nickname)
 {
 	for (size_t i = 0; i < clients.size(); i++)
 	{
-		if (clients[i].getNickname() == nickname && clients[i].isRegistered())
+		if (clients[i] && clients[i]->getNickname() == nickname && clients[i]->isRegistered())
 		{
-			return &clients[i];
+			return clients[i];
 		}
 	}
 	return NULL;
 }
 
+// find client by fd
+Client *Server::findClientByFd(int fd)
+{
+	for (size_t i = 0; i < clients.size(); i++)
+	{
+		if (clients[i] && clients[i]->GetFd() == fd)
+			return clients[i];
+	}
+	return NULL;
+}
+
 // Normal IRC commands
-// Replace the stub handlePRIVMSG with this full implementation:
 void Server::handlePRIVMSG(Client &client, const std::string &command)
 {
 	std::cout << YEL << "Processing PRIVMSG from " << client.getNickname() << WHI << std::endl;
@@ -691,18 +729,6 @@ void Server::handlePING(Client &client, const std::string &command)
 	sendToClient(client.GetFd(), pongMsg);
 	std::cout << GRE << "PONG sent to " << client.getNickname() << WHI << std::endl;
 }
-// void Server::handlePING(Client &client, const std::string &command)
-// {
-// 	std::vector<std::string> tokens = splitCommand(command);
-// 	if (tokens.size() > 1)
-// 	{
-// 		sendToClient(client.GetFd(), ":server PONG server :" + tokens[1] + "\r\n");
-// 	}
-// 	else
-// 	{
-// 		sendToClient(client.GetFd(), ":server PONG server\r\n");
-// 	}
-// }
 
 // Channel management methods:
 Channel *Server::findChannel(const std::string &channelName)
@@ -756,7 +782,7 @@ void Server::broadcastToChannel(Channel *channel, const std::string &message, Cl
 			bool fdValid = false;
 			for (size_t j = 0; j < clients.size(); j++)
 			{
-				if (clients[j].GetFd() == targetFd)
+				if (clients[j] && clients[j]->GetFd() == targetFd)
 				{
 					fdValid = true;
 					break;
@@ -814,7 +840,7 @@ void Server::handleJOIN(Client &client, const std::string &command)
 		std::cout << std::endl;
 	}
 
-	// Check if client is already in channel
+	// Check if client is already in channel (compare by fd)
 	if (channel->hasClient(&client))
 	{
 		std::cout << RED << "DUPLICATE JOIN DETECTED for " << client.getNickname() << WHI << std::endl;
@@ -830,10 +856,17 @@ void Server::handleJOIN(Client &client, const std::string &command)
 	sendToClient(client.GetFd(), joinMsg);
 	broadcastToChannel(channel, joinMsg, &client);
 
-	// Send topic if exists
+	// TODO: Handle channel topic when new use enter
+	// Send topic if exists, otherwise tell client there's no topic
 	if (!channel->getTopic().empty())
 	{
 		sendToClient(client.GetFd(), ":server 332 " + client.getNickname() + " " + channelName + " :" + channel->getTopic() + "\r\n");
+		// optional: if you keep who/time info in channel
+		// sendToClient(client.GetFd(), ":server 333 " + client.getNickname() + " " + channelName + " <setter> <timestamp>\r\n");
+	}
+	else
+	{
+		sendToClient(client.GetFd(), ":server 331 " + client.getNickname() + " " + channelName + " :No topic is set\r\n");
 	}
 
 	// Send names list
@@ -1052,3 +1085,11 @@ void Server::handleQUIT(Client &client, const std::string &command)
 	close(client.GetFd());
 	ClearClients(client.GetFd());
 }
+
+// =========================
+// Client.cpp (unchanged interface, implementation identical except destructor prints may change)
+// =========================
+
+// =========================
+// Channel.cpp (unchanged, already using Client*; kept for completeness)
+// =========================

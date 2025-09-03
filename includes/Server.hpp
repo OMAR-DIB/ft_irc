@@ -7,10 +7,10 @@
 class Server //-> class for server
 {
 private:
-	int Port;					 //-> server port
-	int SerSocketFd;			 //-> server socket file descriptor
-	static bool Signal;			 //-> static boolean for signal
-	std::vector<Client> clients; //-> vector of clients
+	int Port;					   //-> server port
+	int SerSocketFd;			   //-> server socket file descriptor
+	static bool Signal;			   //-> static boolean for signal
+	std::vector<Client *> clients; //-> vector of clients
 	// *pollfd* : to check for events on multiple file descriptors without blocking your program
 	std::vector<struct pollfd> fds;	 //-> vector of pollfd
 	std::string password;			 // Server password
@@ -36,7 +36,7 @@ public:
 
 	// find client by nickname
 	Client *findClientByNickname(const std::string &nickname);
-
+	Client *findClientByFd(int fd);
 	// Normal IRC commands
 	void handlePRIVMSG(Client &client, const std::string &command);
 
