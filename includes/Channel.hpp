@@ -4,43 +4,44 @@
 #include <string>
 #include <vector>
 #include <algorithm>
-
 class Client;
-
-class Channel {
+class Server;
+class Channel
+{
 private:
     std::string name;
     std::string topic;
-    std::vector<Client*> clients;
-    std::vector<Client*> operators;  // Channel admin with @ before name
-    
+    std::vector<Client *> clients;
+    std::vector<Client *> operators; // Channel admin with @ before name
+
 public:
-    Channel(const std::string& channelName);
+    Channel(const std::string &channelName);
     ~Channel();
-    
+
     // Getters
-    const std::string& getName() const ;
-    const std::string& getTopic() const ;
-    const std::vector<Client*>& getClients() const ;
-    const std::vector<Client*>& getOperators() const ;
-    
+    const std::string &getName() const;
+    const std::string &getTopic() const;
+    const std::vector<Client *> &getClients() const;
+    const std::vector<Client *> &getOperators() const;
+
     // Setters
-    void setTopic(const std::string& newTopic) ;
-    
+    void setTopic(const std::string &newTopic);
+
     // Client management
-    void addClient(Client* client);
-    void removeClient(Client* client);
-    bool hasClient(Client* client) const;
-    
-    // Operator management  
-    void addOperator(Client* client);
-    void removeOperator(Client* client);
-    bool isOperator(Client* client) const;
-    
+    void addClient(Client *client);
+    void removeClient(Client *client);
+    bool hasClient(Client *client) const;
+    bool hasClientByFd(int fd) const;
+    // Operator management
+    void addOperator(Client *client);
+    void removeOperator(Client *client);
+    bool isOperator(Client *client) const;
+
     // Utility
-    size_t getClientCount() const ;
+    size_t getClientCount() const;
     bool isEmpty() const;
     std::string getClientsList() const;
+    
 };
 
 #endif

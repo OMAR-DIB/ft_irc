@@ -15,29 +15,29 @@ Channel::~Channel()
 }
 
 // Getters
-const std::string &Channel::getName() const 
-{ 
-    return name; 
+const std::string &Channel::getName() const
+{
+    return name;
 }
 
-const std::string &Channel::getTopic() const 
-{ 
-    return topic; 
+const std::string &Channel::getTopic() const
+{
+    return topic;
 }
 
-const std::vector<Client *> &Channel::getClients() const 
-{ 
-    return clients; 
+const std::vector<Client *> &Channel::getClients() const
+{
+    return clients;
 }
 
-const std::vector<Client *> &Channel::getOperators() const 
-{ 
-    return operators; 
+const std::vector<Client *> &Channel::getOperators() const
+{
+    return operators;
 }
 
 // Setters
 void Channel::setTopic(const std::string &newTopic)
-{ 
+{
     topic = newTopic;
 }
 
@@ -55,36 +55,94 @@ void Channel::addClient(Client *client)
         }
     }
 }
-
 void Channel::removeClient(Client *client)
 {
-    // Check if this client was an operator before removing
+    if (!client)
+
+        return;
+
     bool wasOperator = isOperator(client);
-    
-    // Remove from clients list
-    std::vector<Client*>::iterator it = std::find(clients.begin(), clients.end(), client);
-    if (it != clients.end()) {
-        clients.erase(it);
+
+    std::cout << YEL << "Removing client " << client->getNickname()
+              << " (fd:" << client->GetFd() << ") from channel " << name << WHI << std::endl;
+
+    // CRITICAL FIX: Remove from clients list using FD comparison
+    for (size_t i = 0; i < clients.size();)
+    {
+        if (clients[i] == client)
+        {
+            std::cout << GRE << "  -> Found and removing client at index " << i << WHI << std::endl;
+            clients.erase(clients.begin() + i);
+            // Don't increment i since we removed an element
+        }
+        else
+        {
+            i++;
+        }
     }
-    
-    // Remove from operators list if present
-    it = std::find(operators.begin(), operators.end(), client);
-    if (it != operators.end()) {
-        operators.erase(it);
+
+    // Remove from operators list using POINTER comparison
+    for (size_t i = 0; i < operators.size();)
+    {
+        if (operators[i] == client) // Compare pointers, not FDs
+        {
+            std::cout << GRE << "  -> Found and removing operator at index " << i << WHI << std::endl;
+            operators.erase(operators.begin() + i);
+            // Don't increment i since we removed an element
+        }
+        else
+        {
+            i++;
+        }
     }
-    
-    // CRITICAL: If we removed the last operator and channel isn't empty, promote someone
-    if (wasOperator && operators.empty() && !clients.empty()) {
-        // Promote the first remaining client to operator
-        addOperator(clients[0]);
-        std::cout << GRE << "Auto-promoted " << clients[0]->getNickname() 
-                  << " to operator in " << name << WHI << std::endl;
+
+    std::cout << "Channel " << name << " now has " << clients.size() << " clients, "
+              << operators.size() << " operators" << std::endl;
+
+    // Auto-promote if needed
+    if (wasOperator && operators.empty() && !clients.empty())
+    {
+        Client *newOp = clients.front();
+        addOperator(newOp);
+        std::cout << GRE << "Auto-promoted " << newOp->getNickname()
+                  << " to operator in channel " << name << WHI << std::endl;
     }
+
+    std::cout << "Final client list: ";
+    for (size_t i = 0; i < clients.size(); i++)
+    {
+        std::cout << clients[i]->getNickname() << "(fd:" << clients[i]->GetFd() << ") ";
+    }
+    std::cout << std::endl;
 }
 
 bool Channel::hasClient(Client *client) const
 {
-    return std::find(clients.begin(), clients.end(), client) != clients.end();
+    if (!client)
+        return false;
+
+    // Use POINTER comparison, not FD comparison
+    for (size_t i = 0; i < clients.size(); i++)
+    {
+        if (clients[i] == client) // Compare actual pointers
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Alternative: Safer version using fd comparison
+bool Channel::hasClientByFd(int fd) const
+{
+    for (size_t i = 0; i < clients.size(); i++)
+    {
+        if (clients[i]->GetFd() == fd)
+        {
+            return true;
+        }
+    }
+    return false;
 }
 // Operator management
 void Channel::addOperator(Client *client)
@@ -94,29 +152,45 @@ void Channel::addOperator(Client *client)
         operators.push_back(client);
     }
 }
-void Channel::removeOperator(Client *client)
-{
-    std::vector<Client *>::iterator it = std::find(operators.begin(), operators.end(), client);
-    if (it != operators.end())
-    {
-        operators.erase(it);
-    }
-}
+// void Channel::removeOperator(Client *client)
+//{
+//     std::vector<Client *>::iterator it = std::find(operators.begin(), operators.end(), client);
+//     if (it != operators.end())
+//     {
+//         operators.erase(it);
+//     }
+//     std::cout << "Final operator list: ";
+//     for (size_t i = 0; i < operators.size(); i++)
+//     {
+//         std::cout << operators[i]->getNickname() << "(fd:" << operators[i]->GetFd() << ") ";
+//     }
+//     std::cout << std::endl;
+// }
 
 bool Channel::isOperator(Client *client) const
 {
-    return std::find(operators.begin(), operators.end(), client) != operators.end();
-}
+    if (!client)
+        return false;
 
+    // Use POINTER comparison, not FD comparison
+    for (size_t i = 0; i < operators.size(); i++)
+    {
+        if (operators[i] == client) // Compare actual pointers
+        {
+            return true;
+        }
+    }
+    return false;
+}
 // Utility
-size_t Channel::getClientCount() const 
-{ 
+size_t Channel::getClientCount() const
+{
     return clients.size();
 }
 
-bool Channel::isEmpty() const 
-{ 
-    return clients.empty(); 
+bool Channel::isEmpty() const
+{
+    return clients.empty();
 }
 
 std::string Channel::getClientsList() const

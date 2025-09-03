@@ -81,7 +81,7 @@ bool Client::hasCompleteCommand()
 {                               // the npos indicate not found
     return buffer.find("\n") != std::string::npos; 
 }
-
+    
 std::string Client::extractCommand() {
     size_t pos = buffer.find('\n');
     if (pos == std::string::npos) {
