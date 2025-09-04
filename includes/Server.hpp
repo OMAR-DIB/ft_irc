@@ -56,6 +56,7 @@ public:
 
 	// operator commands
 	void handleTOPIC(Client &client, const std::string &command);
+	void handleKICK(Client &client, const std::string &command);
 };
 
 #endif
