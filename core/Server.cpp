@@ -1,20 +1,3 @@
-// =========================
-// Server.hpp (CHANGES REQUIRED)
-// =========================
-
-// Make sure to change the declaration of the clients vector from
-//    std::vector<Client> clients;
-// to
-//    std::vector<Client*> clients;
-// and update any forward declarations / includes accordingly.
-
-// Also add a helper prototype:
-// Client* findClientByFd(int fd);
-
-// =========================
-// Server.cpp (FULL UPDATED - Fix A: Server stores Client* )
-// =========================
-
 #include "../includes/Server.hpp"
 #include <cstring>
 #include <sstream>
@@ -1085,11 +1068,3 @@ void Server::handleQUIT(Client &client, const std::string &command)
 	close(client.GetFd());
 	ClearClients(client.GetFd());
 }
-
-// =========================
-// Client.cpp (unchanged interface, implementation identical except destructor prints may change)
-// =========================
-
-// =========================
-// Channel.cpp (unchanged, already using Client*; kept for completeness)
-// =========================

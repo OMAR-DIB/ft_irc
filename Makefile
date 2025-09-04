@@ -5,7 +5,7 @@ SRCS =  main.cpp					\
 		core/Server.cpp				\
 		core/Client.cpp		 		\
 		core/Channel.cpp			\
-		
+		core/Helper.cpp				\
 
 OBJDIR = objs
 OBJCS = $(SRCS:%.cpp=$(OBJDIR)/%.o)
