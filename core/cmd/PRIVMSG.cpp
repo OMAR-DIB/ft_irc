@@ -5,23 +5,22 @@
 
 
 // Normal IRC commands
-void Cmd::handlePRIVMSG(Client &client, const std::string &command)
+void Cmd::handlePRIVMSG(Server &server, Client &client, const std::string &command)
 {
-	Server s;
 	std::cout << YEL << "Processing PRIVMSG from " << client.getNickname() << WHI << std::endl;
 
 	// Parse the command: PRIVMSG <target> :<message>
 	size_t firstSpace = command.find(' ');
 	if (firstSpace == std::string::npos)
 	{
-		s.sendToClient(client.GetFd(), ":server 461 " + client.getNickname() + " PRIVMSG :Not enough parameters\r\n");
+		server.sendToClient(client.GetFd(), ":server 461 " + client.getNickname() + " PRIVMSG :Not enough parameters\r\n");
 		return;
 	}
 
 	size_t secondSpace = command.find(' ', firstSpace + 1);
 	if (secondSpace == std::string::npos)
 	{
-		s.sendToClient(client.GetFd(), ":server 461 " + client.getNickname() + " PRIVMSG :Not enough parameters\r\n");
+		server.sendToClient(client.GetFd(), ":server 461 " + client.getNickname() + " PRIVMSG :Not enough parameters\r\n");
 		return;
 	}
 
@@ -32,7 +31,7 @@ void Cmd::handlePRIVMSG(Client &client, const std::string &command)
 	std::string message = command.substr(secondSpace + 1);
 	if (message.empty() || message[0] != ':')
 	{
-		s.sendToClient(client.GetFd(), ":server 461 " + client.getNickname() + " PRIVMSG :Not enough parameters\r\n");
+		server.sendToClient(client.GetFd(), ":server 461 " + client.getNickname() + " PRIVMSG :Not enough parameters\r\n");
 		return;
 	}
 
@@ -41,7 +40,7 @@ void Cmd::handlePRIVMSG(Client &client, const std::string &command)
 
 	if (message.empty())
 	{
-		s.sendToClient(client.GetFd(), ":server 412 " + client.getNickname() + " :No text to send\r\n");
+		server.sendToClient(client.GetFd(), ":server 412 " + client.getNickname() + " :No text to send\r\n");
 		return;
 	}
 
@@ -50,11 +49,11 @@ void Cmd::handlePRIVMSG(Client &client, const std::string &command)
 	// Check if target is a channel (starts with # or &)
 	if (target[0] == '#' || target[0] == '&')
 	{
-		s.handleChannelMessage(client, target, message);
+		server.handleChannelMessage(client, target, message);
 	}
 	else
 	{
-		s.handleUserMessage(client, target, message);
+		server.handleUserMessage(client, target, message);
 	}
 }
 

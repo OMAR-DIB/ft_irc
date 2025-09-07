@@ -5,14 +5,13 @@
 
 
 
-void Cmd::handleINVITE(Client &client, const std::string &command)
+void Cmd::handleINVITE(Server &server, Client &client, const std::string &command)
 {
-	Server s;
-	std::vector<std::string> tokens = s.splitCommand(command);
+	std::vector<std::string> tokens = server.splitCommand(command);
 
 	if (tokens.size() < 3)
 	{
-		s.sendToClient(client.GetFd(), ":server 461 " + client.getNickname() + " INVITE :Not enough parameters\r\n");
+		server.sendToClient(client.GetFd(), ":server 461 " + client.getNickname() + " INVITE :Not enough parameters\r\n");
 		return;
 	}
 
@@ -27,51 +26,51 @@ void Cmd::handleINVITE(Client &client, const std::string &command)
 	// Validate channel name format
 	if (channelName.empty() || (channelName[0] != '#' && channelName[0] != '&'))
 	{
-		s.sendToClient(client.GetFd(), ":server 403 " + client.getNickname() + " " + channelName + " :No such channel\r\n");
+		server.sendToClient(client.GetFd(), ":server 403 " + client.getNickname() + " " + channelName + " :No such channel\r\n");
 		return;
 	}
 
 	// Find the target client
-	Client *targetClient = s.findClientByNickname(targetNick);
+	Client *targetClient = server.findClientByNickname(targetNick);
 	if (!targetClient)
 	{
-		s.sendToClient(client.GetFd(), ":server 401 " + client.getNickname() + " " + targetNick + " :No such nick/channel\r\n");
+		server.sendToClient(client.GetFd(), ":server 401 " + client.getNickname() + " " + targetNick + " :No such nick/channel\r\n");
 		return;
 	}
 
 	// Cannot invite yourself
 	if (targetClient == &client)
 	{
-		s.sendToClient(client.GetFd(), ":server 484 " + client.getNickname() + " " + channelName + " :Cannot invite yourself\r\n");
+		server.sendToClient(client.GetFd(), ":server 484 " + client.getNickname() + " " + channelName + " :Cannot invite yourself\r\n");
 		return;
 	}
 
 	// Find the channel
-	Channel *channel = s.findChannel(channelName);
+	Channel *channel = server.findChannel(channelName);
 	if (!channel)
 	{
-		s.sendToClient(client.GetFd(), ":server 403 " + client.getNickname() + " " + channelName + " :No such channel\r\n");
+		server.sendToClient(client.GetFd(), ":server 403 " + client.getNickname() + " " + channelName + " :No such channel\r\n");
 		return;
 	}
 
 	// Check if inviter is in the channel
 	if (!channel->hasClient(&client))
 	{
-		s.sendToClient(client.GetFd(), ":server 442 " + client.getNickname() + " " + channelName + " :You're not on that channel\r\n");
+		server.sendToClient(client.GetFd(), ":server 442 " + client.getNickname() + " " + channelName + " :You're not on that channel\r\n");
 		return;
 	}
 
 	// Check if inviter is an operator (required for invitations)
 	if (!channel->isOperator(&client))
 	{
-		s.sendToClient(client.GetFd(), ":server 482 " + client.getNickname() + " " + channelName + " :You're not channel operator\r\n");
+		server.sendToClient(client.GetFd(), ":server 482 " + client.getNickname() + " " + channelName + " :You're not channel operator\r\n");
 		return;
 	}
 
 	// Check if target is already in the channel
 	if (channel->hasClient(targetClient))
 	{
-		s.sendToClient(client.GetFd(), ":server 443 " + client.getNickname() + " " + targetNick + " " + channelName + " :is already on channel\r\n");
+		server.sendToClient(client.GetFd(), ":server 443 " + client.getNickname() + " " + targetNick + " " + channelName + " :is already on channel\r\n");
 		return;
 	}
 
@@ -79,10 +78,10 @@ void Cmd::handleINVITE(Client &client, const std::string &command)
 
 	// Send invitation message to target user
 	std::string inviteMsg = ":" + client.getNickname() + "!" + client.getUsername() + "@localhost INVITE " + targetNick + " " + channelName + "\r\n";
-	s.sendToClient(targetClient->GetFd(), inviteMsg);
+	server.sendToClient(targetClient->GetFd(), inviteMsg);
 
 	// Send confirmation to inviter
-	s.sendToClient(client.GetFd(), ":server 341 " + client.getNickname() + " " + targetNick + " " + channelName + "\r\n");
+	server.sendToClient(client.GetFd(), ":server 341 " + client.getNickname() + " " + targetNick + " " + channelName + "\r\n");
 
 	// Optional: Notify other channel operators about the invitation
 	std::string notifyMsg = ":" + client.getNickname() + "!" + client.getUsername() + "@localhost NOTICE " + channelName + " :" + client.getNickname() + " has invited " + targetNick + " to join\r\n";
@@ -93,7 +92,7 @@ void Cmd::handleINVITE(Client &client, const std::string &command)
 		// Notify other operators (not the inviter)
 		if (channelClients[i] != &client && channel->isOperator(channelClients[i]))
 		{
-			s.sendToClient(channelClients[i]->GetFd(), notifyMsg);
+			server.sendToClient(channelClients[i]->GetFd(), notifyMsg);
 		}
 	}
 

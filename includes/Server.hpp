@@ -51,7 +51,9 @@ public:
 	void removeChannel(Channel *channel);
 	void broadcastToChannel(Channel *channel, const std::string &message, Client *sender = NULL);
 
-	//void handleJOIN(Client &client, const std::string &command);
+	void handleJOIN(Client &client, const std::string &command);
+	void handlePRIVMSG(Client &client, const std::string &command);
+	void handleKICK(Client &client, const std::string &command);
 	void handlePART(Client &client, const std::string &command);
 	void handleQUIT(Client &client, const std::string &command);
 	void handlePING(Client &client, const std::string &command);
@@ -61,8 +63,8 @@ public:
 
 	// operator commands
 	void handleTOPIC(Client &client, const std::string &command);
-
 	void handleINVITE(Client &client, const std::string &command);
+	void handleMODE(Client &client, const std::string &command);
 };
 
 #endif

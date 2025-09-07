@@ -1,4 +1,5 @@
 #include "../includes/Server.hpp"
+#include "../includes/Cmd.hpp"
 #include <cstring>
 #include <sstream>
 #include <cerrno> // for errno
@@ -202,7 +203,7 @@ void Server::ReceiveNewData(int fd)
 		}
 	}
 }
-
+ 
 void Server::ClearClients(int fd)
 {
 	std::cout << RED << "=== CLEANUP START: Client fd=" << fd << " ===" << WHI << std::endl;
@@ -431,6 +432,10 @@ void Server::processCommand(Client &client, const std::string &command)
 	else if (cmd == "KICK")
 	{
 		handleKICK(client, command);
+	}
+	else if (cmd == "MODE")
+	{
+		handleMODE(client, command);
 	}
 	else if (cmd == "PASS" || cmd == "NICK" || cmd == "USER")
 	{
@@ -677,5 +682,51 @@ void Server::broadcastToChannel(Channel *channel, const std::string &message, Cl
 			}
 		}
 	}
+}
+
+// Wrapper functions to call existing Cmd class implementations
+void Server::handleJOIN(Client &client, const std::string &command)
+{
+	Cmd::handleJOIN(*this, client, command);
+}
+
+void Server::handlePRIVMSG(Client &client, const std::string &command)
+{
+	Cmd::handlePRIVMSG(*this, client, command);
+}
+
+void Server::handleKICK(Client &client, const std::string &command)
+{
+	Cmd::handleKICK(*this, client, command);
+}
+
+void Server::handleMODE(Client &client, const std::string &command)
+{
+	Cmd::handleMODE(*this, client, command);
+}
+
+void Server::handlePART(Client &client, const std::string &command)
+{
+	Cmd::handlePART(*this, client, command);
+}
+
+void Server::handleQUIT(Client &client, const std::string &command)
+{
+	Cmd::handleQUIT(*this, client, command);
+}
+
+void Server::handlePING(Client &client, const std::string &command)
+{
+	Cmd::handlePING(*this, client, command);
+}
+
+void Server::handleINVITE(Client &client, const std::string &command)
+{
+	Cmd::handleINVITE(*this, client, command);
+}
+
+void Server::handleTOPIC(Client &client, const std::string &command)
+{
+	Cmd::handleTOPIC(*this, client, command);
 }
 

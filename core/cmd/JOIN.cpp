@@ -4,14 +4,13 @@
 #include "../../includes/Client.hpp"
 
 
-void Cmd::handleJOIN(Client &client, const std::string &command)
+void Cmd::handleJOIN(Server &server, Client &client, const std::string &command)
 {
-	Server s;
-	std::vector<std::string> tokens = s.splitCommand(command);
+	std::vector<std::string> tokens = server.splitCommand(command);
 
 	if (tokens.size() < 2)
 	{
-		s.sendToClient(client.GetFd(), ":server 461 " + client.getNickname() + " JOIN :Not enough parameters\r\n");
+		server.sendToClient(client.GetFd(), ":server 461 " + client.getNickname() + " JOIN :Not enough parameters\r\n");
 		return;
 	}
 
@@ -19,17 +18,17 @@ void Cmd::handleJOIN(Client &client, const std::string &command)
 
 	if (channelName.empty() || (channelName[0] != '#' && channelName[0] != '&'))
 	{
-		s.sendToClient(client.GetFd(), ":server 403 " + client.getNickname() + " " + channelName + " :No such channel\r\n");
+		server.sendToClient(client.GetFd(), ":server 403 " + client.getNickname() + " " + channelName + " :No such channel\r\n");
 		return;
 	}
 
 	std::cout << YEL << "=== JOIN DEBUG ===" << WHI << std::endl;
 	std::cout << "Client " << client.getNickname() << " (fd:" << client.GetFd() << ") joining " << channelName << WHI << std::endl;
 
-	Channel *channel = s.findChannel(channelName);
+	Channel *channel = server.findChannel(channelName);
 	if (!channel)
 	{
-		channel = s.createChannel(channelName);
+		channel = server.createChannel(channelName);
 		std::cout << GRE << "Created new channel " << channelName << WHI << std::endl;
 	}
 	else
@@ -57,25 +56,25 @@ void Cmd::handleJOIN(Client &client, const std::string &command)
 
 	// Send JOIN messages
 	std::string joinMsg = ":" + client.getNickname() + "!" + client.getUsername() + "@localhost JOIN " + channelName + "\r\n";
-	s.sendToClient(client.GetFd(), joinMsg);
-	s.broadcastToChannel(channel, joinMsg, &client);
+	server.sendToClient(client.GetFd(), joinMsg);
+	server.broadcastToChannel(channel, joinMsg, &client);
 
 	// TODO: Handle channel topic when new use enter
 	// Send topic if exists, otherwise tell client there's no topic
 	if (!channel->getTopic().empty())
 	{
-		s.sendToClient(client.GetFd(), ":server 332 " + client.getNickname() + " " + channelName + " :" + channel->getTopic() + "\r\n");
+		server.sendToClient(client.GetFd(), ":server 332 " + client.getNickname() + " " + channelName + " :" + channel->getTopic() + "\r\n");
 		// optional: if you keep who/time info in channel
 		// sendToClient(client.GetFd(), ":server 333 " + client.getNickname() + " " + channelName + " <setter> <timestamp>\r\n");
 	}
 	else
 	{
-		s.sendToClient(client.GetFd(), ":server 331 " + client.getNickname() + " " + channelName + " :No topic is set\r\n");
+		server.sendToClient(client.GetFd(), ":server 331 " + client.getNickname() + " " + channelName + " :No topic is set\r\n");
 	}
 
 	// Send names list
-	s.sendToClient(client.GetFd(), ":server 353 " + client.getNickname() + " = " + channelName + " :" + channel->getClientsList() + "\r\n");
-	s.sendToClient(client.GetFd(), ":server 366 " + client.getNickname() + " " + channelName + " :End of /NAMES list\r\n");
+	server.sendToClient(client.GetFd(), ":server 353 " + client.getNickname() + " = " + channelName + " :" + channel->getClientsList() + "\r\n");
+	server.sendToClient(client.GetFd(), ":server 366 " + client.getNickname() + " " + channelName + " :End of /NAMES list\r\n");
 
 	std::cout << GRE << "Client " << client.getNickname() << " successfully joined " << channelName
 			  << " (" << channel->getClientCount() << " clients)" << WHI << std::endl;

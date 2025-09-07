@@ -6,6 +6,15 @@ SRCS =  main.cpp					\
 		core/Client.cpp		 		\
 		core/Channel.cpp			\
 		core/Helper.cpp				\
+		core/cmd/JOIN.cpp			\
+		core/cmd/PRIVMSG.cpp		\
+		core/cmd/KICK.cpp			\
+		core/cmd/MODE.cpp			\
+		core/cmd/INVITE.cpp			\
+		core/cmd/TOPIC.cpp			\
+		core/cmd/PART.cpp			\
+		core/cmd/QUIT.cpp			\
+		core/cmd/PING.cpp			\
 
 OBJDIR = objs
 OBJCS = $(SRCS:%.cpp=$(OBJDIR)/%.o)
