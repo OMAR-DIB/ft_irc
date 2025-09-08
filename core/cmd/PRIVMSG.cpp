@@ -3,11 +3,9 @@
 #include "../../includes/Channel.hpp"
 #include "../../includes/Client.hpp"
 
-
-
-void Cmd::handlePRIVMSG(Server &s, Client &client, const std::string &command)
+void Cmd::handlePRIVMSG(Server &server, Client &client, const std::string &command)
 {
-	
+
 	std::cout << YEL << "Processing PRIVMSG from " << client.getNickname() << WHI << std::endl;
 
 	// Parse the command: PRIVMSG <target> :<message>

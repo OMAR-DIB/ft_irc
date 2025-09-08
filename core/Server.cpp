@@ -203,7 +203,7 @@ void Server::ReceiveNewData(int fd)
 		}
 	}
 }
- 
+
 void Server::ClearClients(int fd)
 {
 	std::cout << RED << "=== CLEANUP START: Client fd=" << fd << " ===" << WHI << std::endl;
@@ -435,7 +435,7 @@ void Server::processCommand(Client &client, const std::string &command)
 	}
 	else if (cmd == "MODE")
 	{
-		handleMODE(client, command);
+		Cmd::handleMODE(*this, client, command);
 	}
 	else if (cmd == "PASS" || cmd == "NICK" || cmd == "USER")
 	{

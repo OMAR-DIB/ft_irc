@@ -5,7 +5,7 @@
 #include "Channel.hpp"
 #include "Cmd.hpp"
 
-class Cmd; // Forward declaration
+class Cmd;	 // Forward declaration
 class Server //-> class for server
 {
 private:
@@ -55,17 +55,8 @@ public:
 
 	// void handleJOIN(Client &client, const std::string &command);
 
-	void handlePART(Client &client, const std::string &command);
-	void handleQUIT(Client &client, const std::string &command);
-	void handlePING(Client &client, const std::string &command);
-
 	void handleChannelMessage(Client &client, const std::string &channelName, const std::string &message);
 	void handleUserMessage(Client &client, const std::string &target, const std::string &message);
-
-	// operator commands
-	void handleTOPIC(Client &client, const std::string &command);
-	void handleINVITE(Client &client, const std::string &command);
-	void handleMODE(Client &client, const std::string &command);
 };
 
 #endif

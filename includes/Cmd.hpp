@@ -7,15 +7,15 @@
 class Cmd
 {
 public:
-
-    static void handleJOIN(Server &s, Client &client, const std::string &command);
-    static void handlePRIVMSG(Server &s, Client &client, const std::string &command);
-    static void handleINVITE(Server &s, Client &client, const std::string &command);
-    static void handleKICK(Server &s, Client &client, const std::string &command);
-    static void handleQUIT(Server &s, Client &client, const std::string &command);
+    static void handleJOIN(Server &server, Client &client, const std::string &command);
+    static void handlePRIVMSG(Server &server, Client &client, const std::string &command);
+    static void handleINVITE(Server &server, Client &client, const std::string &command);
+    static void handleKICK(Server &server, Client &client, const std::string &command);
+    static void handleQUIT(Server &server, Client &client, const std::string &command);
     static void handleTOPIC(Server &server, Client &client, const std::string &command);
     static void handlePART(Server &server, Client &client, const std::string &command);
     static void handlePING(Server &server, Client &client, const std::string &command);
+    static void handleMODE(Server &server, Client &client, const std::string &command);
 };
 
 #endif

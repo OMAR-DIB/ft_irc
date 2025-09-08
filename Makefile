@@ -12,7 +12,8 @@ SRCS =  main.cpp					\
 		core/cmd/PART.cpp			\
 		core/cmd/QUIT.cpp			\
 		core/cmd/TOPIC.cpp			\
-		core/cmd/PING.cpp			
+		core/cmd/PING.cpp			\
+		core/cmd/MODE.cpp			\
 
 
 OBJDIR = objs
