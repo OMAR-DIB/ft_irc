@@ -502,8 +502,8 @@ void Server::handlePASS(Client &client, const std::string &command)
 		sendToClient(client.GetFd(), ":server 464 * :Password incorrect\r\n");
 		// Disconnect client with wrong password
 		std::cout << RED << "Client <" << client.GetFd() << "> wrong password" << WHI << std::endl;
-		close(client.GetFd());
-		ClearClients(client.GetFd());
+		// close(client.GetFd());
+		// ClearClients(client.GetFd());
 	}
 }
 
