@@ -403,35 +403,35 @@ void Server::processCommand(Client &client, const std::string &command)
 	// Now handle normal IRC commands
 	if (cmd == "PRIVMSG")
 	{
-		handlePRIVMSG(client, command);
+		Cmd::handlePRIVMSG(*this, client, command);
 	}
 	else if (cmd == "JOIN")
 	{
-		handleJOIN(client, command);
+		Cmd::handleJOIN(*this, client, command);
 	}
 	else if (cmd == "PART")
 	{
-		handlePART(client, command);
+		Cmd::handlePART(*this, client, command);
 	}
 	else if (cmd == "QUIT")
 	{
-		handleQUIT(client, command);
+		Cmd::handleQUIT(*this, client, command);
 	}
 	else if (cmd == "PING")
 	{
-		handlePING(client, command);
+		Cmd::handlePING(*this, client, command);
 	}
 	else if (cmd == "INVITE")
 	{
-		handleINVITE(client, command);
+		Cmd::handleINVITE(*this, client, command);
 	}
 	else if (cmd == "TOPIC")
 	{
-		handleTOPIC(client, command);
+		Cmd::handleTOPIC(*this, client, command);
 	}
 	else if (cmd == "KICK")
 	{
-		handleKICK(client, command);
+		Cmd::handleKICK(*this, client, command);
 	}
 	else if (cmd == "MODE")
 	{
@@ -611,8 +611,6 @@ Client *Server::findClientByFd(int fd)
 	return NULL;
 }
 
-
-
 // Channel management methods:
 Channel *Server::findChannel(const std::string &channelName)
 {
@@ -683,50 +681,3 @@ void Server::broadcastToChannel(Channel *channel, const std::string &message, Cl
 		}
 	}
 }
-
-// Wrapper functions to call existing Cmd class implementations
-void Server::handleJOIN(Client &client, const std::string &command)
-{
-	Cmd::handleJOIN(*this, client, command);
-}
-
-void Server::handlePRIVMSG(Client &client, const std::string &command)
-{
-	Cmd::handlePRIVMSG(*this, client, command);
-}
-
-void Server::handleKICK(Client &client, const std::string &command)
-{
-	Cmd::handleKICK(*this, client, command);
-}
-
-void Server::handleMODE(Client &client, const std::string &command)
-{
-	Cmd::handleMODE(*this, client, command);
-}
-
-void Server::handlePART(Client &client, const std::string &command)
-{
-	Cmd::handlePART(*this, client, command);
-}
-
-void Server::handleQUIT(Client &client, const std::string &command)
-{
-	Cmd::handleQUIT(*this, client, command);
-}
-
-void Server::handlePING(Client &client, const std::string &command)
-{
-	Cmd::handlePING(*this, client, command);
-}
-
-void Server::handleINVITE(Client &client, const std::string &command)
-{
-	Cmd::handleINVITE(*this, client, command);
-}
-
-void Server::handleTOPIC(Client &client, const std::string &command)
-{
-	Cmd::handleTOPIC(*this, client, command);
-}
-

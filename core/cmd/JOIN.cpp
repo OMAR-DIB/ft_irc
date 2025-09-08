@@ -4,9 +4,11 @@
 #include "../../includes/Client.hpp"
 
 
-void Cmd::handleJOIN(Server &server, Client &client, const std::string &command)
+
+void Cmd::handleJOIN(Server &s, Client &client, const std::string &command)
 {
-	std::vector<std::string> tokens = server.splitCommand(command);
+	
+	std::vector<std::string> tokens = s.splitCommand(command);
 
 	if (tokens.size() < 2)
 	{
