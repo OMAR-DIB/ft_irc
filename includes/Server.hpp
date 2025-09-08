@@ -26,6 +26,11 @@ public:
 	void CloseFds();					   //-> close file descriptors
 	void ClearClients(int fd);			   //-> clear clients
 
+	// implement get channels
+	std::vector<Channel *> getChannels() const{
+		return channels;
+	}
+	
 	void setPassword(const std::string &pass);
 	void processCommand(Client &client, const std::string &command);
 	std::vector<std::string> splitCommand(const std::string &command);
@@ -38,7 +43,7 @@ public:
 	Client *findClientByNickname(const std::string &nickname);
 	Client *findClientByFd(int fd);
 	// Normal IRC commands
-	void handlePRIVMSG(Client &client, const std::string &command);
+	
 
 	// NEW: Channel management methods
 	Channel *findChannel(const std::string &channelName);
@@ -46,7 +51,7 @@ public:
 	void removeChannel(Channel *channel);
 	void broadcastToChannel(Channel *channel, const std::string &message, Client *sender = NULL);
 
-	void handleJOIN(Client &client, const std::string &command);
+	//void handleJOIN(Client &client, const std::string &command);
 	void handlePART(Client &client, const std::string &command);
 	void handleQUIT(Client &client, const std::string &command);
 	void handlePING(Client &client, const std::string &command);
@@ -56,7 +61,7 @@ public:
 
 	// operator commands
 	void handleTOPIC(Client &client, const std::string &command);
-	void handleKICK(Client &client, const std::string &command);
+
 	void handleINVITE(Client &client, const std::string &command);
 };
 
