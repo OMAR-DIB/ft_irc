@@ -6,6 +6,14 @@ Channel::Channel(const std::string &channelName) : name(channelName)
 {
     // Empty topic by default
     topic = "";
+    
+    // Initialize channel modes to default values
+    inviteOnly = false;
+    topicRestricted = true; // Default: only operators can change topic
+    hasKey = false;
+    key = "";
+    hasUserLimit = false;
+    userLimit = 0;
 }
 
 Channel::~Channel()
@@ -13,6 +21,7 @@ Channel::~Channel()
     // Don't delete clients - they're managed by Server
     clients.clear();
     operators.clear();
+    inviteList.clear();
 }
 
 // Getters
@@ -155,6 +164,28 @@ void Channel::addOperator(Client *client)
     }
 }
 
+void Channel::removeOperator(Client *client)
+{
+    if (!client)
+        return;
+        
+    int targetFd = client->GetFd();
+    
+    // Remove from operators list using FD comparison
+    for (size_t i = 0; i < operators.size();)
+    {
+        if (operators[i] && operators[i]->GetFd() == targetFd)
+        {
+            operators.erase(operators.begin() + i);
+            // Don't increment i since we removed an element
+        }
+        else
+        {
+            i++;
+        }
+    }
+}
+
 bool Channel::isOperator(Client *client) const
 {
     if (!client)
@@ -199,4 +230,64 @@ std::string Channel::getClientsList() const
         list += clients[i]->getNickname();
     }
     return list;
+}
+
+// Mode management implementations
+void Channel::addToInviteList(Client *client)
+{
+    if (client && std::find(inviteList.begin(), inviteList.end(), client) == inviteList.end())
+    {
+        inviteList.push_back(client);
+    }
+}
+
+void Channel::removeFromInviteList(Client *client)
+{
+    if (client)
+    {
+        inviteList.erase(std::remove(inviteList.begin(), inviteList.end(), client), inviteList.end());
+    }
+}
+
+bool Channel::isInvited(Client *client) const
+{
+    if (!client)
+        return false;
+    return std::find(inviteList.begin(), inviteList.end(), client) != inviteList.end();
+}
+
+// Mode getters
+bool Channel::isInviteOnly() const { return inviteOnly; }
+bool Channel::isTopicRestricted() const { return topicRestricted; }
+bool Channel::hasChannelKey() const { return hasKey; }
+const std::string &Channel::getKey() const { return key; }
+bool Channel::hasChannelUserLimit() const { return hasUserLimit; }
+size_t Channel::getUserLimit() const { return userLimit; }
+
+// Mode setters
+void Channel::setInviteOnly(bool value) { inviteOnly = value; }
+void Channel::setTopicRestricted(bool value) { topicRestricted = value; }
+
+void Channel::setKey(const std::string &password)
+{
+    hasKey = true;
+    key = password;
+}
+
+void Channel::removeKey()
+{
+    hasKey = false;
+    key = "";
+}
+
+void Channel::setUserLimit(size_t limit)
+{
+    hasUserLimit = true;
+    userLimit = limit;
+}
+
+void Channel::removeUserLimit()
+{
+    hasUserLimit = false;
+    userLimit = 0;
 }

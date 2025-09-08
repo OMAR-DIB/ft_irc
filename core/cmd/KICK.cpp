@@ -5,6 +5,7 @@
 #include "../../includes/Client.hpp"
 
 
+
 void Cmd::handleKICK(Server &s, Client &client, const std::string &command)
 {
 	
@@ -12,7 +13,7 @@ void Cmd::handleKICK(Server &s, Client &client, const std::string &command)
 
 	if (tokens.size() < 3)
 	{
-		s.sendToClient(client.GetFd(), ":server 461 " + client.getNickname() + " KICK :Not enough parameters\r\n");
+		server.sendToClient(client.GetFd(), ":server 461 " + client.getNickname() + " KICK :Not enough parameters\r\n");
 		return;
 	}
 
@@ -25,46 +26,46 @@ void Cmd::handleKICK(Server &s, Client &client, const std::string &command)
 	std::cout << "Target: " << targetNick << std::endl;
 
 	// Find the channel
-	Channel *channel = s.findChannel(channelName);
+	Channel *channel = server.findChannel(channelName);
 	if (!channel)
 	{
-		s.sendToClient(client.GetFd(), ":server 403 " + client.getNickname() + " " + channelName + " :No such channel\r\n");
+		server.sendToClient(client.GetFd(), ":server 403 " + client.getNickname() + " " + channelName + " :No such channel\r\n");
 		return;
 	}
 
 	// Check if kicker is in the channel
 	if (!channel->hasClient(&client))
 	{
-		s.sendToClient(client.GetFd(), ":server 442 " + client.getNickname() + " " + channelName + " :You're not on that channel\r\n");
+		server.sendToClient(client.GetFd(), ":server 442 " + client.getNickname() + " " + channelName + " :You're not on that channel\r\n");
 		return;
 	}
 
 	// Check if kicker is an operator
 	if (!channel->isOperator(&client))
 	{
-		s.sendToClient(client.GetFd(), ":server 482 " + client.getNickname() + " " + channelName + " :You're not channel operator\r\n");
+		server.sendToClient(client.GetFd(), ":server 482 " + client.getNickname() + " " + channelName + " :You're not channel operator\r\n");
 		return;
 	}
 
 	// Find the target client
-	Client *targetClient = s.findClientByNickname(targetNick);
+	Client *targetClient = server.findClientByNickname(targetNick);
 	if (!targetClient)
 	{
-		s.sendToClient(client.GetFd(), ":server 401 " + client.getNickname() + " " + targetNick + " :No such nick/channel\r\n");
+		server.sendToClient(client.GetFd(), ":server 401 " + client.getNickname() + " " + targetNick + " :No such nick/channel\r\n");
 		return;
 	}
 
 	// Check if target is in the channel
 	if (!channel->hasClient(targetClient))
 	{
-		s.sendToClient(client.GetFd(), ":server 441 " + client.getNickname() + " " + targetNick + " " + channelName + " :They aren't on that channel\r\n");
+		server.sendToClient(client.GetFd(), ":server 441 " + client.getNickname() + " " + targetNick + " " + channelName + " :They aren't on that channel\r\n");
 		return;
 	}
 
 	// Prevent self-kick
 	if (targetClient == &client)
 	{
-		s.sendToClient(client.GetFd(), ":server 484 " + client.getNickname() + " " + channelName + " :Cannot kick yourself\r\n");
+		server.sendToClient(client.GetFd(), ":server 484 " + client.getNickname() + " " + channelName + " :Cannot kick yourself\r\n");
 		return;
 	}
 
@@ -97,7 +98,7 @@ void Cmd::handleKICK(Server &s, Client &client, const std::string &command)
 	const std::vector<Client *> &channelClients = channel->getClients();
 	for (size_t i = 0; i < channelClients.size(); i++)
 	{
-		s.sendToClient(channelClients[i]->GetFd(), kickMsg);
+		server.sendToClient(channelClients[i]->GetFd(), kickMsg);
 	}
 
 	std::cout << GRE << "Broadcasting KICK: " << kickMsg << WHI;
@@ -108,7 +109,7 @@ void Cmd::handleKICK(Server &s, Client &client, const std::string &command)
 	// Check if channel is empty and remove if needed
 	if (channel->isEmpty())
 	{
-		s.removeChannel(channel);
+		server.removeChannel(channel);
 		std::cout << RED << "Channel " << channelName << " deleted (empty after kick)" << WHI << std::endl;
 	}
 

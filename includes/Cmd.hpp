@@ -7,6 +7,7 @@
 class Cmd
 {
 public:
+
     static void handleJOIN(Server &s, Client &client, const std::string &command);
     static void handlePRIVMSG(Server &s, Client &client, const std::string &command);
     static void handleINVITE(Server &s, Client &client, const std::string &command);

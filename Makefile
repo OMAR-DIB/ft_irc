@@ -14,6 +14,7 @@ SRCS =  main.cpp					\
 		core/cmd/TOPIC.cpp			\
 		core/cmd/PING.cpp			
 
+
 OBJDIR = objs
 OBJCS = $(addprefix $(OBJDIR)/, $(SRCS:.cpp=.o))
 
