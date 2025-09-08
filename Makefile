@@ -1,22 +1,28 @@
 NAME = ircserv
 
-
 SRCS =  main.cpp					\
 		core/Server.cpp				\
 		core/Client.cpp		 		\
 		core/Channel.cpp			\
 		core/Helper.cpp				\
+		core/cmd/INVITE.cpp			\
+		core/cmd/JOIN.cpp			\
+		core/cmd/KICK.cpp			\
+		core/cmd/PRIVMSG.cpp		\
+		core/cmd/PART.cpp			\
+		core/cmd/QUIT.cpp			\
+		core/cmd/TOPIC.cpp			\
+		core/cmd/PING.cpp			
 
 OBJDIR = objs
-OBJCS = $(SRCS:%.cpp=$(OBJDIR)/%.o)
+OBJCS = $(addprefix $(OBJDIR)/, $(SRCS:.cpp=.o))
 
 CC = c++
-
 CFLAGS = -Wall -Wextra -Werror -std=c++98
 
 all: $(NAME)
 
-$(OBJDIR): 
+$(OBJDIR):
 	mkdir -p $(OBJDIR)
 
 $(NAME): $(OBJDIR) $(OBJCS)

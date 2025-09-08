@@ -1,4 +1,5 @@
 #include "../includes/Server.hpp"
+#include "../includes/Cmd.hpp"
 #include <cstring>
 #include <sstream>
 #include <cerrno> // for errno
@@ -402,35 +403,35 @@ void Server::processCommand(Client &client, const std::string &command)
 	// Now handle normal IRC commands
 	if (cmd == "PRIVMSG")
 	{
-		handlePRIVMSG(client, command);
+		Cmd::handlePRIVMSG(*this, client, command);
 	}
 	else if (cmd == "JOIN")
 	{
-		handleJOIN(client, command);
+		Cmd::handleJOIN(*this, client, command);
 	}
 	else if (cmd == "PART")
 	{
-		handlePART(client, command);
+		Cmd::handlePART(*this, client, command);
 	}
 	else if (cmd == "QUIT")
 	{
-		handleQUIT(client, command);
+		Cmd::handleQUIT(*this, client, command);
 	}
 	else if (cmd == "PING")
 	{
-		handlePING(client, command);
+		Cmd::handlePING(*this, client, command);
 	}
 	else if (cmd == "INVITE")
 	{
-		handleINVITE(client, command);
+		Cmd::handleINVITE(*this, client, command);
 	}
 	else if (cmd == "TOPIC")
 	{
-		handleTOPIC(client, command);
+		Cmd::handleTOPIC(*this, client, command);
 	}
 	else if (cmd == "KICK")
 	{
-		handleKICK(client, command);
+		Cmd::handleKICK(*this, client, command);
 	}
 	else if (cmd == "PASS" || cmd == "NICK" || cmd == "USER")
 	{
@@ -606,8 +607,6 @@ Client *Server::findClientByFd(int fd)
 	return NULL;
 }
 
-
-
 // Channel management methods:
 Channel *Server::findChannel(const std::string &channelName)
 {
@@ -678,4 +677,3 @@ void Server::broadcastToChannel(Channel *channel, const std::string &message, Cl
 		}
 	}
 }
-

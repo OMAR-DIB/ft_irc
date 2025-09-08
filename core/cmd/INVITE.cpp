@@ -4,10 +4,8 @@
 #include "../../includes/Client.hpp"
 
 
-
-void Cmd::handleINVITE(Client &client, const std::string &command)
+void Cmd::handleINVITE(Server &s,Client &client, const std::string &command)
 {
-	Server s;
 	std::vector<std::string> tokens = s.splitCommand(command);
 
 	if (tokens.size() < 3)
