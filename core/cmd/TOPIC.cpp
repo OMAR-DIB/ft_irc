@@ -78,6 +78,13 @@ void Cmd::handleTOPIC(Server &server,Client &client, const std::string &command)
 		return;
 	}
 
+	// Check topic lock
+	if (!channel->isTopicRestricted())
+	{
+		server.sendToClient(client.GetFd(), ":server 482 " + client.getNickname() + " " + channelName + " :Topic currently restricted, remove restriction to procceed\r\n");
+		return;
+	}
+
 	// Set topic
 	std::string newTopic = tokens[2];
 	if (newTopic[0] == ':')

@@ -5,10 +5,10 @@
 
 
 
-void Cmd::handleJOIN(Server &s, Client &client, const std::string &command)
+void Cmd::handleJOIN(Server &server, Client &client, const std::string &command)
 {
 	
-	std::vector<std::string> tokens = s.splitCommand(command);
+	std::vector<std::string> tokens = server.splitCommand(command);
 
 	if (tokens.size() < 2)
 	{
@@ -17,7 +17,7 @@ void Cmd::handleJOIN(Server &s, Client &client, const std::string &command)
 	}
 
 	std::string channelName = tokens[1];
-
+	int passwordInCommand = tokens.size() == 3;
 	if (channelName.empty() || (channelName[0] != '#' && channelName[0] != '&'))
 	{
 		server.sendToClient(client.GetFd(), ":server 403 " + client.getNickname() + " " + channelName + " :No such channel\r\n");
@@ -53,6 +53,37 @@ void Cmd::handleJOIN(Server &s, Client &client, const std::string &command)
 		return;
 	}
 
+	// Check mode permissions to see if channel is or isnt invite only , if it is check if user is in the invite list
+	if (channel->isInviteOnly() && !channel->isInvited(&client))
+	{
+		std::cout << RED << "USER: " << client.getNickname() << " Not in invite list"<< WHI << std::endl;
+		server.sendToClient(client.GetFd(), ":server 473 " + client.getNickname() + " JOIN :Not in invite list\r\n");
+		return;
+	}
+
+	// Check password	
+	if (channel->hasChannelKey() && !passwordInCommand)
+	{
+		std::cout << RED << "USER: " << client.getNickname() << " No password has been sent"<< WHI << std::endl;
+		server.sendToClient(client.GetFd(), ":server 475 " + client.getNickname() + " JOIN :No password has been sent\r\n");
+		return;
+	}
+
+	if (channel->hasChannelKey() && passwordInCommand && tokens[3] != channel->getKey())
+	{
+		std::cout << RED << "USER: " << client.getNickname() << " Wrong password"<< WHI << std::endl;
+		server.sendToClient(client.GetFd(), ":server 475 " + client.getNickname() + " JOIN :Wrong password\r\n");
+		return;
+	}
+
+	// Check channel size limit
+	if (channel->hasChannelUserLimit() && channel->getUserLimit() >= channel->getClientCount())
+	{
+		std::cout << RED << "USER: " << client.getNickname() << " Channel is full"<< WHI << std::endl;
+		server.sendToClient(client.GetFd(), ":server 471 " + client.getNickname() + " JOIN :Channel is full\r\n");
+		return;
+	}
+	
 	// Add client to channel
 	channel->addClient(&client);
 

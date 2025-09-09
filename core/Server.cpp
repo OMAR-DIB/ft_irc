@@ -435,7 +435,7 @@ void Server::processCommand(Client &client, const std::string &command)
 	}
 	else if (cmd == "MODE")
 	{
-		handleMODE(client, command);
+		Cmd::handleMODE(*this, client, command);
 	}
 	else if (cmd == "PASS" || cmd == "NICK" || cmd == "USER")
 	{

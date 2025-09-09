@@ -6,10 +6,10 @@
 
 
 
-void Cmd::handleKICK(Server &s, Client &client, const std::string &command)
+void Cmd::handleKICK(Server &server, Client &client, const std::string &command)
 {
 	
-	std::vector<std::string> tokens = s.splitCommand(command);
+	std::vector<std::string> tokens = server.splitCommand(command);
 
 	if (tokens.size() < 3)
 	{
