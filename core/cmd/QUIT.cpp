@@ -4,9 +4,9 @@
 #include "../../includes/Channel.hpp"
 #include "../../includes/Client.hpp"
 
-void Cmd::handleQUIT(Server &s, Client &client, const std::string &command)
+void Cmd::handleQUIT(Server &server, Client &client, const std::string &command)
 {
-	std::vector<std::string> tokens = s.splitCommand(command);
+	std::vector<std::string> tokens = server.splitCommand(command);
 
 	// Extract quit message if provided
 	std::string quitMsg = "Quit";
@@ -27,18 +27,18 @@ void Cmd::handleQUIT(Server &s, Client &client, const std::string &command)
 
 	// Create quit message to broadcast
 	std::string fullQuitMsg = ":" + client.getNickname() + "!" + client.getUsername() + "@localhost QUIT :" + quitMsg + "\r\n";
-	for (size_t i = 0; i < s.getChannels().size(); i++)
+	for (size_t i = 0; i < server.getChannels().size(); i++)
 	{
-		Channel *channel = s.getChannels()[i];
+		Channel *channel = server.getChannels()[i];
 		if (channel->hasClient(&client))
 		{
-			s.broadcastToChannel(channel, fullQuitMsg, &client);
+			server.broadcastToChannel(channel, fullQuitMsg, &client);
 			channel->removeClient(&client);
 		}
 	}
 
-	s.sendToClient(client.GetFd(), ":server ERROR :Closing Link: " + client.getNickname() + " (" + quitMsg + ")\r\n");
+	server.sendToClient(client.GetFd(), ":server ERROR :Closing Link: " + client.getNickname() + " (" + quitMsg + ")\r\n");
 
 	close(client.GetFd());
-	s.ClearClients(client.GetFd());
+	server.ClearClients(client.GetFd());
 }

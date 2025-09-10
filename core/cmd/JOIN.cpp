@@ -7,7 +7,7 @@
 
 void Cmd::handleJOIN(Server &server, Client &client, const std::string &command)
 {
-	
+
 	std::vector<std::string> tokens = server.splitCommand(command);
 
 	if (tokens.size() < 2)
