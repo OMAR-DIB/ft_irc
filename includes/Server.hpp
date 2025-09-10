@@ -53,10 +53,6 @@ public:
 	void removeChannel(Channel *channel);
 	void broadcastToChannel(Channel *channel, const std::string &message, Client *sender = NULL);
 
-	// void handleJOIN(Client &client, const std::string &command);
-
-	void handleChannelMessage(Client &client, const std::string &channelName, const std::string &message);
-	void handleUserMessage(Client &client, const std::string &target, const std::string &message);
 };
 
 #endif

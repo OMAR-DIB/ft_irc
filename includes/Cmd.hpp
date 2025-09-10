@@ -14,6 +14,7 @@ public:
     static void handleQUIT(Server &server, Client &client, const std::string &command);
     static void handleTOPIC(Server &server, Client &client, const std::string &command);
     static void handlePART(Server &server, Client &client, const std::string &command);
+	static void handleMODE(Server &server, Client &client, const std::string &command);
     static void handlePING(Server &server, Client &client, const std::string &command);
     static void handleMODE(Server &server, Client &client, const std::string &command);
 };

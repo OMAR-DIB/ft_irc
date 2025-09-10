@@ -8,6 +8,7 @@ SRCS =  main.cpp					\
 		core/cmd/INVITE.cpp			\
 		core/cmd/JOIN.cpp			\
 		core/cmd/KICK.cpp			\
+		core/cmd/MODE.cpp			\
 		core/cmd/PRIVMSG.cpp		\
 		core/cmd/PART.cpp			\
 		core/cmd/QUIT.cpp			\
