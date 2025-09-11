@@ -1,37 +1,38 @@
 #ifndef SERVER_HPP
-#define SERVER_HPP
+# define SERVER_HPP
 
-#include "Client.hpp"
-#include "Channel.hpp"
-#include "Cmd.hpp"
+# include "Channel.hpp"
+# include "Client.hpp"
+# include "Cmd.hpp"
 
-class Cmd;	 // Forward declaration
+class Cmd;   // Forward declaration
 class Server //-> class for server
 {
-private:
-	int Port;					   //-> server port
-	int SerSocketFd;			   //-> server socket file descriptor
-	static bool Signal;			   //-> static boolean for signal
+  private:
+	int Port;                      //-> server port
+	int SerSocketFd;               //-> server socket file descriptor
+	static bool Signal;            //-> static boolean for signal
 	std::vector<Client *> clients; //-> vector of clients
 	// *pollfd* : to check for events on multiple file descriptors without blocking your program
-	std::vector<struct pollfd> fds;	 //-> vector of pollfd
-	std::string password;			 // Server password
+	std::vector<struct pollfd> fds;  //-> vector of pollfd
+	std::string password;            // Server password
 	std::vector<Channel *> channels; // NEW: Channel storage
-public:
-	Server();							   //-> default constructor
-	~Server();							   //-> destructor
-	void ServerInit(int port);			   //-> server initialization
-	void ServerSocket();				   //-> server socket creation
-	void AcceptNewClient();				   //-> accept new client
-	void ReceiveNewData(int fd);		   //-> receive new data from a registered client
+  public:
+	Server();                              //-> default constructor
+	~Server();                             //-> destructor
+	void ServerInit(int port);             //-> server initialization
+	void ServerSocket();                   //-> server socket creation
+	void AcceptNewClient();                //-> accept new client
+	void ReceiveNewData(int fd);          
+		//-> receive new data from a registered client
 	static void SignalHandler(int signum); //-> signal handler
-	void CloseFds();					   //-> close file descriptors
-	void ClearClients(int fd);			   //-> clear clients
+	void CloseFds();                       //-> close file descriptors
+	void ClearClients(int fd);             //-> clear clients
 
 	// implement get channels
 	std::vector<Channel *> getChannels() const
 	{
-		return channels;
+		return (channels);
 	}
 
 	void setPassword(const std::string &pass);
@@ -51,8 +52,13 @@ public:
 	Channel *findChannel(const std::string &channelName);
 	Channel *createChannel(const std::string &channelName);
 	void removeChannel(Channel *channel);
-	void broadcastToChannel(Channel *channel, const std::string &message, Client *sender = NULL);
+	void broadcastToChannel(Channel *channel, const std::string &message,
+		Client *sender = NULL);
 
+	void handleChannelMessage(Client &client, const std::string &channelName,
+		const std::string &message);
+	void handleUserMessage(Client &client, const std::string &target,
+		const std::string &message);
 };
 
 #endif
