@@ -1,8 +1,19 @@
 #include "../includes/Server.hpp"
 #include "../includes/Cmd.hpp"
+
 #include <sstream>
 #include <cerrno>    // errno
 #include <cctype>    // std::toupper
+#include <algorithm> // std::find
+
+// If not already pulled in by headers on your platform, you may keep these includes:
+// #include <netinet/in.h>
+// #include <arpa/inet.h>
+// #include <sys/socket.h>
+// #include <fcntl.h>
+// #include <unistd.h>
+// #include <poll.h>
+// #include <signal.h>
 
 bool Server::Signal = false; // initialize the static boolean
 
@@ -103,6 +114,10 @@ void Server::ServerSocket()
 void Server::ServerInit(int port)
 {
     this->Port = port;
+
+    // Prevent SIGPIPE on send() to closed sockets
+    signal(SIGPIPE, SIG_IGN);
+
     ServerSocket();
 
     std::cout << GRE << "Server <" << SerSocketFd << "> Connected" << WHI << std::endl;
@@ -115,19 +130,40 @@ void Server::ServerInit(int port)
 
         for (size_t i = 0; i < fds.size(); i++)
         {
+            const int curfd = fds[i].fd;
+
+            // Handle error/hangup conditions first
+            if (fds[i].revents & (POLLERR | POLLHUP | POLLNVAL))
+            {
+                if (curfd != SerSocketFd)
+                {
+                    std::cout << RED << "FD <" << curfd << "> error/hup, removing" << WHI << std::endl;
+                    ClearClients(curfd);
+                    close(curfd);
+                }
+                else
+                {
+                    std::cout << RED << "Server socket error/hup" << WHI << std::endl;
+                    Server::Signal = true;
+                }
+                // Our fds vector likely changed; restart processing this poll cycle
+                break;
+            }
+
             if (fds[i].revents & POLLIN)
             {
-                if (fds[i].fd == SerSocketFd)
+                if (curfd == SerSocketFd)
                 {
                     std::cout << " accept a client...\n";
                     AcceptNewClient();
                 }
                 else
                 {
-                    ReceiveNewData(fds[i].fd);
+                    ReceiveNewData(curfd);
                 }
+                // fds can change in handlers; restart loop after handling one fd
+                break;
             }
-            // NOTE: consider handling POLLOUT to flush write queues (non-blocking sends).
         }
     }
     CloseFds();
@@ -170,7 +206,7 @@ void Server::AcceptNewClient()
 
 void Server::ReceiveNewData(int fd)
 {
-    char buff[1024]; // no memset; we null-terminate manually after recv
+    char buff[1024]; // no memset; we null-terminate after recv
 
     ssize_t bytes = recv(fd, buff, sizeof(buff) - 1, 0);
     if (bytes <= 0)
@@ -336,7 +372,7 @@ void Server::processCommand(Client &client, const std::string &command)
 
     std::string cmd = tokens[0];
     for (size_t i = 0; i < cmd.length(); i++)
-        cmd[i] = std::toupper(cmd[i]);
+        cmd[i] = static_cast<char>(std::toupper(static_cast<unsigned char>(cmd[i])));
 
     // allow PING before authentication
     if (!client.isAuthenticated())
@@ -423,14 +459,14 @@ std::vector<std::string> Server::splitCommand(const std::string &command)
 
 void Server::sendToClient(int fd, const std::string &message)
 {
-    // Direct send (non-blocking fd). For robustness, consider queuing + POLLOUT.
+    // Direct send (non-blocking fd). For full compliance, consider write-queue + POLLOUT.
     ssize_t sent = send(fd, message.c_str(), message.length(), 0);
     if (sent < 0)
     {
         std::cout << RED << "Failed to send to client <" << fd << ">, errno=" << errno << WHI << std::endl;
         return;
     }
-    std::cout << GRE << "Sent to client <" << fd << ">: " << message << WHI;
+    std::cout << GRE << "Sent to client <" << fd << ">: " + message << WHI;
 }
 
 void Server::handlePASS(Client &client, const std::string &command)
