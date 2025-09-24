@@ -77,6 +77,9 @@ void Cmd::handleINVITE(Server &server,Client &client, const std::string &command
 
 	std::cout << GRE << "All checks passed, sending invitation..." << WHI << std::endl;
 
+	// Add target client to the channel's invite list
+	channel->addToInviteList(targetClient);
+
 	// Send invitation message to target user
 	std::string inviteMsg = ":" + client.getNickname() + "!" + client.getUsername() + "@localhost INVITE " + targetNick + " " + channelName + "\r\n";
 	server.sendToClient(targetClient->GetFd(), inviteMsg);
