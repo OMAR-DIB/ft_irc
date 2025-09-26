@@ -5,114 +5,152 @@
 #include "../../includes/Client.hpp"
 
 
-
 void Cmd::handleKICK(Server &server, Client &client, const std::string &command)
 {
-	
-	std::vector<std::string> tokens = server.splitCommand(command);
+    std::vector<std::string> tokens = server.splitCommand(command);
 
-	if (tokens.size() < 3)
-	{
-		server.sendToClient(client.GetFd(), ":server 461 " + client.getNickname() + " KICK :Not enough parameters\r\n");
-		return;
-	}
+    if (tokens.size() < 3)
+    {
+        server.sendToClient(client.GetFd(), ":server 461 " + client.getNickname() + " KICK :Not enough parameters\r\n");
+        return;
+    }
 
-	std::string channelName = tokens[1];
-	std::string targetNick = tokens[2];
+    std::string channelName = tokens[1];
+    std::string targetNick = tokens[2];
 
-	std::cout << YEL << "=== KICK DEBUG ===" << WHI << std::endl;
-	std::cout << "Kicker: " << client.getNickname() << " (fd:" << client.GetFd() << ")" << std::endl;
-	std::cout << "Channel: " << channelName << std::endl;
-	std::cout << "Target: " << targetNick << std::endl;
+    std::cout << YEL << "=== KICK DEBUG ===" << WHI << std::endl;
+    std::cout << "Kicker: " << client.getNickname() << " (fd:" << client.GetFd() << ")" << std::endl;
+    std::cout << "Channel: " << channelName << std::endl;
+    std::cout << "Target: " << targetNick << std::endl;
 
-	// Find the channel
-	Channel *channel = server.findChannel(channelName);
-	if (!channel)
-	{
-		server.sendToClient(client.GetFd(), ":server 403 " + client.getNickname() + " " + channelName + " :No such channel\r\n");
-		return;
-	}
+    // Find the channel
+    Channel *channel = server.findChannel(channelName);
+    if (!channel)
+    {
+        server.sendToClient(client.GetFd(), ":server 403 " + client.getNickname() + " " + channelName + " :No such channel\r\n");
+        return;
+    }
 
-	// Check if kicker is in the channel
-	if (!channel->hasClient(&client))
-	{
-		server.sendToClient(client.GetFd(), ":server 442 " + client.getNickname() + " " + channelName + " :You're not on that channel\r\n");
-		return;
-	}
+    // Check if kicker is in the channel
+    if (!channel->hasClient(&client))
+    {
+        server.sendToClient(client.GetFd(), ":server 442 " + client.getNickname() + " " + channelName + " :You're not on that channel\r\n");
+        return;
+    }
 
-	// Check if kicker is an operator
-	if (!channel->isOperator(&client))
-	{
-		server.sendToClient(client.GetFd(), ":server 482 " + client.getNickname() + " " + channelName + " :You're not channel operator\r\n");
-		return;
-	}
+    // Check if kicker is an operator
+    if (!channel->isOperator(&client))
+    {
+        server.sendToClient(client.GetFd(), ":server 482 " + client.getNickname() + " " + channelName + " :You're not channel operator\r\n");
+        return;
+    }
 
-	// Find the target client
-	Client *targetClient = server.findClientByNickname(targetNick);
-	if (!targetClient)
-	{
-		server.sendToClient(client.GetFd(), ":server 401 " + client.getNickname() + " " + targetNick + " :No such nick/channel\r\n");
-		return;
-	}
+    // Find the target client
+    Client *targetClient = server.findClientByNickname(targetNick);
+    if (!targetClient)
+    {
+        server.sendToClient(client.GetFd(), ":server 401 " + client.getNickname() + " " + targetNick + " :No such nick/channel\r\n");
+        return;
+    }
 
-	// Check if target is in the channel
-	if (!channel->hasClient(targetClient))
-	{
-		server.sendToClient(client.GetFd(), ":server 441 " + client.getNickname() + " " + targetNick + " " + channelName + " :They aren't on that channel\r\n");
-		return;
-	}
+    // Check if target is in the channel
+    if (!channel->hasClient(targetClient))
+    {
+        server.sendToClient(client.GetFd(), ":server 441 " + client.getNickname() + " " + targetNick + " " + channelName + " :They aren't on that channel\r\n");
+        return;
+    }
 
-	// Prevent self-kick
-	if (targetClient == &client)
-	{
-		server.sendToClient(client.GetFd(), ":server 484 " + client.getNickname() + " " + channelName + " :Cannot kick yourself\r\n");
-		return;
-	}
+    // Prevent self-kick
+    if (targetClient == &client)
+    {
+        server.sendToClient(client.GetFd(), ":server 484 " + client.getNickname() + " " + channelName + " :Cannot kick yourself\r\n");
+        return;
+    }
 
-	// Extract kick reason if provided
-	std::string kickReason;
-	if (tokens.size() > 3)
-	{
-		kickReason = tokens[3];
-		if (kickReason[0] == ':')
-		{
-			kickReason = kickReason.substr(1); // Remove the ':'
-		}
-		// Rebuild reason from remaining tokens
-		for (size_t i = 4; i < tokens.size(); i++)
-		{
-			kickReason += " " + tokens[i];
-		}
-	}
-	else
-	{
-		kickReason = client.getNickname(); // Default reason is kicker's nickname
-	}
+    // Extract kick reason - REQUIRE colon for trailing parameters
+    std::string kickReason;
+    
+    // Check if there are additional parameters beyond the required ones
+    if (tokens.size() > 3)
+    {
+        // Find end of "KICK" token
+        std::string::size_type p1 = command.find(' ');
+        if (p1 == std::string::npos)
+        {
+            server.sendToClient(client.GetFd(), ":server 461 " + client.getNickname() + " KICK :Not enough parameters\r\n");
+            return;
+        }
+        
+        // Skip spaces/tabs after "KICK"
+        while (p1 + 1 < command.size() && (command[p1 + 1] == ' ' || command[p1 + 1] == '\t')) ++p1;
 
-	std::cout << "Kick reason: [" << kickReason << "]" << std::endl;
+        // Find end of channel token
+        std::string::size_type p2 = command.find(' ', p1 + 1);
+        if (p2 == std::string::npos)
+        {
+            server.sendToClient(client.GetFd(), ":server 461 " + client.getNickname() + " KICK :Not enough parameters\r\n");
+            return;
+        }
+        
+        // Skip spaces/tabs after channel
+        while (p2 + 1 < command.size() && (command[p2 + 1] == ' ' || command[p2 + 1] == '\t')) ++p2;
 
-	// Create KICK message
-	std::string kickMsg = ":" + client.getNickname() + "!" + client.getUsername() + "@localhost KICK " + channelName + " " + targetNick + " :" + kickReason + "\r\n";
+        // Find end of target nick token
+        std::string::size_type p3 = command.find(' ', p2 + 1);
+        if (p3 == std::string::npos)
+        {
+            server.sendToClient(client.GetFd(), ":server 461 " + client.getNickname() + " KICK :Not enough parameters\r\n");
+            return;
+        }
+        
+        // Skip spaces/tabs after target nick
+        std::string::size_type k = p3;
+        while (k < command.size() && (command[k] == ' ' || command[k] == '\t')) ++k;
 
-	// Broadcast KICK message to ALL channel members (including kicker and target)
-	const std::vector<Client *> &channelClients = channel->getClients();
-	for (size_t i = 0; i < channelClients.size(); i++)
-	{
-		server.sendToClient(channelClients[i]->GetFd(), kickMsg);
-	}
+        if (k < command.size() && command[k] == ':')
+        {
+            // Good! Found colon for trailing parameter
+            kickReason = command.substr(k + 1);
+            std::cout << GRE << "Found required colon - kick reason: [" << kickReason << "]" << WHI << std::endl;
+        }
+        else
+        {
+            // ERROR: Additional parameters provided but no colon
+            server.sendToClient(client.GetFd(), ":server 461 " + client.getNickname() + " KICK :Missing ':' for kick reason\r\n");
+            return;
+        }
+    }
+    else
+    {
+        // No reason provided - use default
+        kickReason = client.getNickname(); // Default reason is kicker's nickname
+        std::cout << YEL << "No kick reason provided - using default: [" << kickReason << "]" << WHI << std::endl;
+    }
 
-	std::cout << GRE << "Broadcasting KICK: " << kickMsg << WHI;
+    std::cout << "Final kick reason: [" << kickReason << "]" << std::endl;
 
-	// Remove target from channel
-	channel->removeClient(targetClient);
+    // Create KICK message
+    std::string kickMsg = ":" + client.getNickname() + "!" + client.getUsername() + "@localhost KICK " + channelName + " " + targetNick + " :" + kickReason + "\r\n";
 
-	// Check if channel is empty and remove if needed
-	if (channel->isEmpty())
-	{
-		server.removeChannel(channel);
-		std::cout << RED << "Channel " << channelName << " deleted (empty after kick)" << WHI << std::endl;
-	}
+    // Broadcast KICK message to ALL channel members (including kicker and target)
+    const std::vector<Client *> &channelClients = channel->getClients();
+    for (size_t i = 0; i < channelClients.size(); i++)
+    {
+        server.sendToClient(channelClients[i]->GetFd(), kickMsg);
+    }
 
-	std::cout << GRE << "KICK completed: " << client.getNickname() << " kicked " << targetNick
-			  << " from " << channelName << " (reason: " << kickReason << ")" << WHI << std::endl;
+    std::cout << GRE << "Broadcasting KICK: " << kickMsg << WHI;
+
+    // Remove target from channel
+    channel->removeClient(targetClient);
+
+    // Check if channel is empty and remove if needed
+    if (channel->isEmpty())
+    {
+        server.removeChannel(channel);
+        std::cout << RED << "Channel " << channelName << " deleted (empty after kick)" << WHI << std::endl;
+    }
+
+    std::cout << GRE << "KICK completed: " << client.getNickname() << " kicked " << targetNick
+              << " from " << channelName << " (reason: " << kickReason << ")" << WHI << std::endl;
 }

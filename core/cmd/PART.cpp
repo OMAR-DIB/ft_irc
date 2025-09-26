@@ -31,23 +31,63 @@ void Cmd::handlePART(Server &server, Client &client, const std::string &command)
 		return;
 	}
 
-	// Extract part message if provided
+	// Extract part message - REQUIRE colon for trailing parameters
 	std::string partMsg;
+
+	// Check if there are additional parameters beyond the required ones
 	if (tokens.size() > 2)
 	{
-		partMsg = tokens[2];
-		if (partMsg[0] == ':')
+		// Find end of "PART" token
+		std::string::size_type p1 = command.find(' ');
+		if (p1 == std::string::npos)
 		{
-			partMsg = partMsg.substr(1);
+			server.sendToClient(client.GetFd(), ":server 461 " + client.getNickname() + " PART :Not enough parameters\r\n");
+			return;
 		}
-		// Rebuild message from remaining tokens
-		for (size_t i = 3; i < tokens.size(); i++)
+
+		// Skip spaces/tabs after "PART"
+		while (p1 + 1 < command.size() && (command[p1 + 1] == ' ' || command[p1 + 1] == '\t'))
+			++p1;
+
+		// Find end of channel token
+		std::string::size_type p2 = command.find(' ', p1 + 1);
+		if (p2 == std::string::npos)
 		{
-			partMsg += " " + tokens[i];
+			server.sendToClient(client.GetFd(), ":server 461 " + client.getNickname() + " PART :Not enough parameters\r\n");
+			return;
+		}
+
+		// Skip spaces/tabs after channel
+		std::string::size_type k = p2;
+		while (k < command.size() && (command[k] == ' ' || command[k] == '\t'))
+			++k;
+
+		if (k < command.size() && command[k] == ':')
+		{
+			// Good! Found colon for trailing parameter
+			partMsg = command.substr(k + 1);
+			std::cout << GRE << "Found required colon - part message: [" << partMsg << "]" << WHI << std::endl;
+		}
+		else
+		{
+			// ERROR: Additional parameters provided but no colon
+			server.sendToClient(client.GetFd(), ":server 461 " + client.getNickname() + " PART :Missing ':' for part message\r\n");
+			return;
 		}
 	}
+	else
+	{
+		// No part message provided - this is allowed
+		partMsg = "";
+		std::cout << YEL << "No part message provided" << WHI << std::endl;
+	}
 
-	std::cout << YEL << "Client " << client.getNickname() << " leaving channel " << channelName << WHI << std::endl;
+	std::cout << YEL << "Client " << client.getNickname() << " leaving channel " << channelName;
+	if (!partMsg.empty())
+		std::cout << " with message: [" << partMsg << "]";
+	else
+		std::cout << " (no part message)";
+	std::cout << WHI << std::endl;
 
 	// Create PART message
 	std::string fullPartMsg = ":" + client.getNickname() + "!" + client.getUsername() + "@localhost PART " + channelName;
