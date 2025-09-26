@@ -52,11 +52,10 @@ void Server::setPassword(const std::string &pass)
 
 void Server::SignalHandler(int signum)
 {
-    (void)signum;
-    std::cout << std::endl << "Signal Received!" << std::endl;
+    std::cout << std::endl
+              << "Signal " << signum << " received! Shutting down..." << std::endl;
     Server::Signal = true;
 }
-
 void Server::CloseFds()
 {
     // close all clients
@@ -84,7 +83,7 @@ void Server::ServerSocket()
     struct sockaddr_in add;
     struct pollfd NewPoll;
 
-    add.sin_family = AF_INET;                   // IPv4
+    add.sin_family = AF_INET; // IPv4
     add.sin_port = htons(this->Port);
     add.sin_addr.s_addr = INADDR_ANY;
 
@@ -125,10 +124,31 @@ void Server::ServerInit(int port)
 
     while (Server::Signal == false)
     {
-        if ((poll(&fds[0], fds.size(), -1) == -1) && Server::Signal == false)
-            throw(std::runtime_error("poll() faild"));
+        // Handle poll() interruption by signals properly
+        int poll_result = poll(&fds[0], fds.size(), -1);
 
-        for (size_t i = 0; i < fds.size(); i++)
+        if (poll_result == -1)
+        {
+            if (errno == EINTR)
+            {
+                // Signal interrupted poll() - check if we should exit
+                if (Server::Signal)
+                {
+                    std::cout << YEL << "Signal received, shutting down gracefully..." << WHI << std::endl;
+                    break;
+                }
+                // Otherwise, continue polling
+                continue;
+            }
+            else
+            {
+                // Real error occurred
+                throw(std::runtime_error("poll() failed"));
+            }
+        }
+
+        // Process events - but check signal status frequently
+        for (size_t i = 0; i < fds.size() && !Server::Signal; i++)
         {
             const int curfd = fds[i].fd;
 
@@ -166,6 +186,8 @@ void Server::ServerInit(int port)
             }
         }
     }
+
+    std::cout << YEL << "Server shutting down..." << WHI << std::endl;
     CloseFds();
 }
 
@@ -244,108 +266,81 @@ void Server::ClearClients(int fd)
 {
     std::cout << RED << "=== CLEANUP START: Client fd=" << fd << " ===" << WHI << std::endl;
 
-    int clientIndex = -1;
+    // Find the client safely
     Client *clientPtr = NULL;
-    std::string clientNick, clientUser;
+    int clientIndex = -1;
 
     for (size_t i = 0; i < clients.size(); i++)
     {
         if (clients[i] && clients[i]->GetFd() == fd)
         {
-            clientIndex = i;
             clientPtr = clients[i];
-            clientNick = clientPtr->getNickname();
-            clientUser = clientPtr->getUsername();
+            clientIndex = static_cast<int>(i);
             break;
         }
     }
 
-    if (clientIndex == -1 || clientPtr == NULL)
+    if (!clientPtr || clientIndex == -1)
     {
         std::cout << RED << "ERROR: Client with fd " << fd << " not found!" << WHI << std::endl;
+
+        // Still remove from fds vector
+        for (size_t i = 0; i < fds.size(); i++)
+        {
+            if (fds[i].fd == fd)
+            {
+                fds.erase(fds.begin() + i);
+                break;
+            }
+        }
         return;
     }
 
+    std::string clientNick = clientPtr->getNickname();
+    std::string clientUser = clientPtr->getUsername();
+
     std::cout << YEL << "Disconnecting client: " << clientNick << " (fd:" << fd << ")" << WHI << std::endl;
 
-    std::cout << YEL << "=== CHANNELS BEFORE CLEANUP ===" << WHI << std::endl;
-    for (size_t i = 0; i < channels.size(); i++)
-    {
-        std::cout << "Channel " << channels[i]->getName() << ":";
-        const std::vector<Client *> &chClients = channels[i]->getClients();
-        for (size_t j = 0; j < chClients.size(); j++)
-        {
-            std::cout << " " << chClients[j]->getNickname() << "(fd:" << chClients[j]->GetFd() << ")";
-            if (channels[i]->isOperator(chClients[j]))
-                std::cout << "@";
-        }
-        std::cout << std::endl;
-    }
-
+    // Create quit message
     std::string quitMsg = ":" + clientNick + "!" + clientUser + "@localhost QUIT :Client disconnected\r\n";
 
-    std::vector<Channel *> channelsToDelete;
+    // Collect channels that need to be cleaned up
+    std::vector<Channel *> channelsToCheck;
 
+    // Remove client from all channels and broadcast quit message
     for (size_t i = 0; i < channels.size(); i++)
     {
         Channel *channel = channels[i];
-        std::cout << YEL << "Checking channel " << channel->getName() << WHI << std::endl;
+        if (!channel)
+            continue; // Safety check
 
-        const std::vector<Client *> &channelClients = channel->getClients();
-
-        for (size_t j = 0; j < channelClients.size(); j++)
+        if (channel->hasClient(clientPtr))
         {
-            if (channelClients[j] && channelClients[j]->GetFd() == fd)
-            {
-                std::cout << GRE << "  -> " << clientNick << " IS in " << channel->getName() << WHI << std::endl;
+            std::cout << GRE << "  -> Removing " << clientNick << " from " << channel->getName() << WHI << std::endl;
 
-                broadcastToChannel(channel, quitMsg, channelClients[j]);
-                channel->removeClient(channelClients[j]);
-                break;
-            }
-        }
+            // Broadcast quit to other channel members first
+            broadcastToChannel(channel, quitMsg, clientPtr);
 
-        if (channel->isEmpty())
-        {
-            std::cout << RED << "  -> Channel " << channel->getName() << " is now empty" << WHI << std::endl;
-            channelsToDelete.push_back(channel);
-        }
-        else
-        {
-            std::cout << GRE << "  -> Channel " << channel->getName() << " still has "
-                      << channel->getClientCount() << " clients" << WHI << std::endl;
+            // Then remove the client
+            channel->removeClient(clientPtr);
+
+            // Mark channel for checking if empty
+            channelsToCheck.push_back(channel);
         }
     }
 
-    for (size_t i = 0; i < channelsToDelete.size(); i++)
+    // Check for empty channels and remove them
+    for (size_t i = 0; i < channelsToCheck.size(); i++)
     {
-        std::cout << RED << "Deleting empty channel: " << channelsToDelete[i]->getName() << WHI << std::endl;
-
-        for (size_t j = 0; j < channels.size(); j++)
+        Channel *channel = channelsToCheck[i];
+        if (channel && channel->isEmpty())
         {
-            if (channels[j] == channelsToDelete[i])
-            {
-                delete channels[j];
-                channels.erase(channels.begin() + j);
-                break;
-            }
+            std::cout << RED << "Removing empty channel: " << channel->getName() << WHI << std::endl;
+            removeChannel(channel); // Use existing safe method
         }
     }
 
-    std::cout << YEL << "=== CHANNELS AFTER CLEANUP ===" << WHI << std::endl;
-    for (size_t i = 0; i < channels.size(); i++)
-    {
-        std::cout << "Channel " << channels[i]->getName() << ":";
-        const std::vector<Client *> &chClients = channels[i]->getClients();
-        for (size_t j = 0; j < chClients.size(); j++)
-        {
-            std::cout << " " << chClients[j]->getNickname() << "(fd:" << chClients[j]->GetFd() << ")";
-            if (channels[i]->isOperator(chClients[j]))
-                std::cout << "@";
-        }
-        std::cout << std::endl;
-    }
-
+    // Remove from fds vector
     for (size_t i = 0; i < fds.size(); i++)
     {
         if (fds[i].fd == fd)
@@ -355,9 +350,9 @@ void Server::ClearClients(int fd)
         }
     }
 
-    Client *toDelete = clients[clientIndex];
+    // Remove from clients vector and delete
     clients.erase(clients.begin() + clientIndex);
-    delete toDelete;
+    delete clientPtr;
 
     std::cout << GRE << "=== CLEANUP COMPLETE for " << clientNick << " ===" << WHI << std::endl;
 }
@@ -424,15 +419,42 @@ void Server::processCommand(Client &client, const std::string &command)
     }
 
     // fully authenticated + registered
-    if (cmd == "PRIVMSG")      { Cmd::handlePRIVMSG(*this, client, command); }
-    else if (cmd == "JOIN")    { Cmd::handleJOIN(*this, client, command); }
-    else if (cmd == "PART")    { Cmd::handlePART(*this, client, command); }
-    else if (cmd == "QUIT")    { Cmd::handleQUIT(*this, client, command); }
-    else if (cmd == "PING")    { Cmd::handlePING(*this, client, command); }
-    else if (cmd == "INVITE")  { Cmd::handleINVITE(*this, client, command); }
-    else if (cmd == "TOPIC")   { Cmd::handleTOPIC(*this, client, command); }
-    else if (cmd == "KICK")    { Cmd::handleKICK(*this, client, command); }
-    else if (cmd == "MODE")    { Cmd::handleMODE(*this, client, command); }
+    if (cmd == "PRIVMSG")
+    {
+        Cmd::handlePRIVMSG(*this, client, command);
+    }
+    else if (cmd == "JOIN")
+    {
+        Cmd::handleJOIN(*this, client, command);
+    }
+    else if (cmd == "PART")
+    {
+        Cmd::handlePART(*this, client, command);
+    }
+    else if (cmd == "QUIT")
+    {
+        Cmd::handleQUIT(*this, client, command);
+    }
+    else if (cmd == "PING")
+    {
+        Cmd::handlePING(*this, client, command);
+    }
+    else if (cmd == "INVITE")
+    {
+        Cmd::handleINVITE(*this, client, command);
+    }
+    else if (cmd == "TOPIC")
+    {
+        Cmd::handleTOPIC(*this, client, command);
+    }
+    else if (cmd == "KICK")
+    {
+        Cmd::handleKICK(*this, client, command);
+    }
+    else if (cmd == "MODE")
+    {
+        Cmd::handleMODE(*this, client, command);
+    }
     else if (cmd == "PASS" || cmd == "NICK" || cmd == "USER")
     {
         sendToClient(client.GetFd(), ":" + _serverName + " 462 " + client.getNickname() + " :You may not reregister\r\n");
@@ -616,16 +638,28 @@ Channel *Server::createChannel(const std::string &channelName)
     return channel;
 }
 
+// Safer channel removal
 void Server::removeChannel(Channel *channel)
 {
-    if (channel && channel->isEmpty())
+    if (!channel)
+        return;
+
+    // Only remove if empty
+    if (!channel->isEmpty())
     {
-        std::vector<Channel *>::iterator it = std::find(channels.begin(), channels.end(), channel);
-        if (it != channels.end())
+        std::cout << YEL << "Warning: Attempted to remove non-empty channel " << channel->getName() << WHI << std::endl;
+        return;
+    }
+
+    // Find and remove from channels vector
+    for (size_t i = 0; i < channels.size(); i++)
+    {
+        if (channels[i] == channel)
         {
             std::cout << RED << "Removing empty channel: " << channel->getName() << WHI << std::endl;
-            channels.erase(it);
+            channels.erase(channels.begin() + i);
             delete channel;
+            return;
         }
     }
 }
