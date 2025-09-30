@@ -17,7 +17,7 @@ void Cmd::handleJOIN(Server &server, Client &client, const std::string &command)
 	}
 
 	std::string channelName = tokens[1];
-	int passwordInCommand = tokens.size() == 3;
+	bool passwordInCommand = tokens.size() >= 3;
 	if (channelName.empty() || (channelName[0] != '#' && channelName[0] != '&'))
 	{
 		server.sendToClient(client.GetFd(), ":server 403 " + client.getNickname() + " " + channelName + " :No such channel\r\n");
@@ -71,7 +71,7 @@ void Cmd::handleJOIN(Server &server, Client &client, const std::string &command)
 		return;
 	}
 
-	if (!is_inv && channel->hasChannelKey() && passwordInCommand && tokens[3] != channel->getKey())
+	if (!is_inv && channel->hasChannelKey() && passwordInCommand && tokens[2] != channel->getKey())
 	{
 		std::cout << RED << "USER: " << client.getNickname() << " Wrong password"<< WHI << std::endl;
 		server.sendToClient(client.GetFd(), ":server 475 " + client.getNickname() + " JOIN :Wrong password\r\n");
