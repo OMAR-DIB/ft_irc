@@ -17,7 +17,7 @@ void Cmd::handleJOIN(Server &server, Client &client, const std::string &command)
 	}
 
 	std::string channelName = tokens[1];
-	int passwordInCommand = tokens.size() == 3;
+	bool passwordInCommand = tokens.size() >= 3;
 	if (channelName.empty() || (channelName[0] != '#' && channelName[0] != '&'))
 	{
 		server.sendToClient(client.GetFd(), ":server 403 " + client.getNickname() + " " + channelName + " :No such channel\r\n");
@@ -53,6 +53,7 @@ void Cmd::handleJOIN(Server &server, Client &client, const std::string &command)
 		return;
 	}
 
+	int is_inv = 0;
 	// Check mode permissions to see if channel is or isnt invite only , if it is check if user is in the invite list
 	if (channel->isInviteOnly() && !channel->isInvited(&client))
 	{
@@ -60,16 +61,17 @@ void Cmd::handleJOIN(Server &server, Client &client, const std::string &command)
 		server.sendToClient(client.GetFd(), ":server 473 " + client.getNickname() + " JOIN :Not in invite list\r\n");
 		return;
 	}
-
-	// Check password	
-	if (channel->hasChannelKey() && !passwordInCommand)
+	else if(channel->isInviteOnly() && channel->isInvited(&client))
+		is_inv = 1;
+	
+	if (!is_inv && (channel->hasChannelKey() && !passwordInCommand))
 	{
 		std::cout << RED << "USER: " << client.getNickname() << " No password has been sent"<< WHI << std::endl;
 		server.sendToClient(client.GetFd(), ":server 475 " + client.getNickname() + " JOIN :No password has been sent\r\n");
 		return;
 	}
 
-	if (channel->hasChannelKey() && passwordInCommand && tokens[3] != channel->getKey())
+	if (!is_inv && channel->hasChannelKey() && passwordInCommand && tokens[2] != channel->getKey())
 	{
 		std::cout << RED << "USER: " << client.getNickname() << " Wrong password"<< WHI << std::endl;
 		server.sendToClient(client.GetFd(), ":server 475 " + client.getNickname() + " JOIN :Wrong password\r\n");
