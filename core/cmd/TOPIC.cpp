@@ -3,12 +3,10 @@
 #include "../../includes/Channel.hpp"
 #include "../../includes/Client.hpp"
 
-// Final TOPIC handler
 void Cmd::handleTOPIC(Server &server, Client &client, const std::string &command)
 {
     const std::string &srv = server.getServerName();
 
-    // Tokenize enough to get the channel name
     std::vector<std::string> tokens = server.splitCommand(command);
     if (tokens.size() < 2)
     {
@@ -19,7 +17,6 @@ void Cmd::handleTOPIC(Server &server, Client &client, const std::string &command
 
     const std::string channelName = tokens[1];
 
-    // Find channel
     Channel *channel = server.findChannel(channelName);
     if (!channel)
     {
@@ -28,7 +25,6 @@ void Cmd::handleTOPIC(Server &server, Client &client, const std::string &command
         return;
     }
 
-    // Must be on channel
     const std::vector<Client *> &members = channel->getClients();
     bool onChannel = false;
     for (size_t i = 0; i < members.size(); ++i)
@@ -46,7 +42,6 @@ void Cmd::handleTOPIC(Server &server, Client &client, const std::string &command
         return;
     }
 
-    // VIEW: "TOPIC <chan>"
     if (tokens.size() == 2)
     {
         if (channel->getTopic().empty())
@@ -58,13 +53,10 @@ void Cmd::handleTOPIC(Server &server, Client &client, const std::string &command
         return;
     }
 
-    // SET: REQUIRE colon for trailing parameters when setting topic
     std::string newTopic;
 
-    // Check if there are additional parameters beyond the required ones
     if (tokens.size() > 2)
     {
-        // Find end of "TOPIC" token
         std::string::size_type p1 = command.find(' ');
         if (p1 == std::string::npos)
         {
@@ -73,11 +65,9 @@ void Cmd::handleTOPIC(Server &server, Client &client, const std::string &command
             return;
         }
 
-        // Skip spaces/tabs after "TOPIC"
         while (p1 + 1 < command.size() && (command[p1 + 1] == ' ' || command[p1 + 1] == '\t'))
             ++p1;
 
-        // Find end of channel token
         std::string::size_type p2 = command.find(' ', p1 + 1);
         if (p2 == std::string::npos)
         {
@@ -86,20 +76,17 @@ void Cmd::handleTOPIC(Server &server, Client &client, const std::string &command
             return;
         }
 
-        // Skip spaces/tabs after channel
         std::string::size_type k = p2;
         while (k < command.size() && (command[k] == ' ' || command[k] == '\t'))
             ++k;
 
         if (k < command.size() && command[k] == ':')
         {
-            // Good! Found colon for trailing parameter
             newTopic = command.substr(k + 1);
             std::cout << GRE << "Found required colon - new topic: [" << newTopic << "]" << WHI << std::endl;
         }
         else
         {
-            // ERROR: Additional parameters provided but no colon
             server.sendToClient(client.GetFd(), ":" + srv + " 461 " + client.getNickname() +
                                                     " TOPIC :Missing ':' for topic text\r\n");
             return;
@@ -107,13 +94,11 @@ void Cmd::handleTOPIC(Server &server, Client &client, const std::string &command
     }
     else
     {
-        // This should not happen since we checked tokens.size() > 2, but just in case
         server.sendToClient(client.GetFd(), ":" + srv + " 461 " + client.getNickname() +
                                                 " TOPIC :Not enough parameters\r\n");
         return;
     }
 
-    // Enforce +t (topic restriction)
     if (channel->isTopicRestricted() && !channel->isOperator(&client))
     {
         server.sendToClient(client.GetFd(), ":" + srv + " 482 " + client.getNickname() +
@@ -121,7 +106,6 @@ void Cmd::handleTOPIC(Server &server, Client &client, const std::string &command
         return;
     }
 
-    // Set and broadcast
     channel->setTopic(newTopic);
     const std::string msg = ":" + client.getNickname() + "!" + client.getUsername() +
                             "@localhost TOPIC " + channelName + " :" + newTopic + "\r\n";

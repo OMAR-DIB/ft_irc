@@ -8,7 +8,6 @@ void Cmd::handleQUIT(Server &server, Client &client, const std::string &command)
 {
 	std::vector<std::string> tokens = server.splitCommand(command);
 
-	// Extract quit message if provided
 	std::string quitMsg = "Quit";
 	if (tokens.size() > 1)
 	{
@@ -25,7 +24,6 @@ void Cmd::handleQUIT(Server &server, Client &client, const std::string &command)
 
 	std::cout << RED << "Client " << client.getNickname() << " is quitting: " << quitMsg << WHI << std::endl;
 
-	// Create quit message to broadcast
 	std::string fullQuitMsg = ":" + client.getNickname() + "!" + client.getUsername() + "@localhost QUIT :" + quitMsg + "\r\n";
 	for (size_t i = 0; i < server.getChannels().size(); i++)
 	{

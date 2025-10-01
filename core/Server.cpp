@@ -2,38 +2,27 @@
 #include "../includes/Cmd.hpp"
 
 #include <sstream>
-#include <cerrno>    // errno
-#include <cctype>    // std::toupper
-#include <algorithm> // std::find
+#include <cerrno>    
+#include <cctype>    
+#include <algorithm> 
 
-// If not already pulled in by headers on your platform, you may keep these includes:
-// #include <netinet/in.h>
-// #include <arpa/inet.h>
-// #include <sys/socket.h>
-// #include <fcntl.h>
-// #include <unistd.h>
-// #include <poll.h>
-// #include <signal.h>
 
-bool Server::Signal = false; // initialize the static boolean
-
+bool Server::Signal = false;
 Server::Server()
 {
     std::cout << YEL << "[Server] constructor" << std::endl;
     SerSocketFd = -1;
-    _serverName = "irc.local"; // non-empty server prefix used in numerics/replies
+    _serverName = "irc.local"; 
 }
 
 Server::~Server()
 {
     std::cout << YEL << "[Server] destructor" << std::endl;
 
-    // Clean up channels
     for (size_t i = 0; i < channels.size(); i++)
         delete channels[i];
     channels.clear();
 
-    // Clean up clients
     for (size_t i = 0; i < clients.size(); i++)
     {
         if (clients[i])
@@ -59,7 +48,6 @@ void Server::SignalHandler(int signum)
 
 void Server::CloseFds()
 {
-    // close all clients
     for (size_t i = 0; i < clients.size(); i++)
     {
         if (clients[i])
@@ -71,7 +59,6 @@ void Server::CloseFds()
     }
     clients.clear();
 
-    // close server socket
     if (SerSocketFd != -1)
     {
         std::cout << RED << "Server <" << SerSocketFd << "> Disconnected" << WHI << std::endl;
@@ -84,7 +71,7 @@ void Server::ServerSocket()
     struct sockaddr_in add;
     struct pollfd NewPoll;
 
-    add.sin_family = AF_INET;                   // IPv4
+    add.sin_family = AF_INET;                 
     add.sin_port = htons(this->Port);
     add.sin_addr.s_addr = INADDR_ANY;
 
@@ -115,7 +102,6 @@ void Server::ServerInit(int port)
 {
     this->Port = port;
 
-    // Prevent SIGPIPE on send() to closed sockets
     signal(SIGPIPE, SIG_IGN);
 
     ServerSocket();
@@ -132,7 +118,6 @@ void Server::ServerInit(int port)
         {
             const int curfd = fds[i].fd;
 
-            // Handle error/hangup conditions first
             if (fds[i].revents & (POLLERR | POLLHUP | POLLNVAL))
             {
                 if (curfd != SerSocketFd)
@@ -146,7 +131,6 @@ void Server::ServerInit(int port)
                     std::cout << RED << "Server socket error/hup" << WHI << std::endl;
                     Server::Signal = true;
                 }
-                // Our fds vector likely changed; restart processing this poll cycle
                 break;
             }
 
@@ -161,7 +145,6 @@ void Server::ServerInit(int port)
                 {
                     ReceiveNewData(curfd);
                 }
-                // fds can change in handlers; restart loop after handling one fd
                 break;
             }
         }
@@ -206,7 +189,7 @@ void Server::AcceptNewClient()
 
 void Server::ReceiveNewData(int fd)
 {
-    char buff[1024]; // no memset; we null-terminate after recv
+    char buff[1024]; 
 
     ssize_t bytes = recv(fd, buff, sizeof(buff) - 1, 0);
     if (bytes <= 0)
@@ -374,7 +357,6 @@ void Server::processCommand(Client &client, const std::string &command)
     for (size_t i = 0; i < cmd.length(); i++)
         cmd[i] = static_cast<char>(std::toupper(static_cast<unsigned char>(cmd[i])));
 
-    // allow PING before authentication
     if (!client.isAuthenticated())
     {
         if (cmd == "PASS")
@@ -392,7 +374,6 @@ void Server::processCommand(Client &client, const std::string &command)
         return;
     }
 
-    // allow PING before full registration too
     if (!client.isRegistered())
     {
         if (cmd == "NICK")
@@ -423,16 +404,37 @@ void Server::processCommand(Client &client, const std::string &command)
         }
     }
 
-    // fully authenticated + registered
-    if (cmd == "PRIVMSG")      { Cmd::handlePRIVMSG(*this, client, command); }
-    else if (cmd == "JOIN")    { Cmd::handleJOIN(*this, client, command); }
-    else if (cmd == "PART")    { Cmd::handlePART(*this, client, command); }
-    else if (cmd == "QUIT")    { Cmd::handleQUIT(*this, client, command); }
-    else if (cmd == "PING")    { Cmd::handlePING(*this, client, command); }
-    else if (cmd == "INVITE")  { Cmd::handleINVITE(*this, client, command); }
-    else if (cmd == "TOPIC")   { Cmd::handleTOPIC(*this, client, command); }
-    else if (cmd == "KICK")    { Cmd::handleKICK(*this, client, command); }
-    else if (cmd == "MODE")    { Cmd::handleMODE(*this, client, command); }
+    if (cmd == "PRIVMSG")
+    { 
+        Cmd::handlePRIVMSG(*this, client, command); 
+    }
+    else if (cmd == "JOIN")
+    { 
+        Cmd::handleJOIN(*this, client, command);
+     }
+    else if (cmd == "PART")
+    { 
+        Cmd::handlePART(*this, client, command);
+    }
+    else if (cmd == "QUIT")
+    {
+        Cmd::handleQUIT(*this, client, command);
+    }
+    else if (cmd == "PING"){ 
+        Cmd::handlePING(*this, client, command);
+    }
+    else if (cmd == "INVITE"){
+        Cmd::handleINVITE(*this, client, command);
+    }
+    else if (cmd == "TOPIC"){ 
+        Cmd::handleTOPIC(*this, client, command);
+    }
+    else if (cmd == "KICK"){
+        Cmd::handleKICK(*this, client, command);
+    }
+    else if (cmd == "MODE"){
+        Cmd::handleMODE(*this, client, command);
+    }
     else if (cmd == "PASS" || cmd == "NICK" || cmd == "USER")
     {
         sendToClient(client.GetFd(), ":" + _serverName + " 462 " + client.getNickname() + " :You may not reregister\r\n");
@@ -445,9 +447,7 @@ void Server::processCommand(Client &client, const std::string &command)
 
 std::vector<std::string> Server::splitCommand(const std::string &command)
 {
-    // NOTE: simple space-splitting (trailing with spaces is lost).
-    // Commands that need trailing (PING/PRIVMSG/TOPIC) should parse from the full line.
-    std::vector<std::string> tokens;
+   std::vector<std::string> tokens;
     std::stringstream ss(command);
     std::string token;
 

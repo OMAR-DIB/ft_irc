@@ -16,15 +16,12 @@ void Cmd::handleMODE(Server &server, Client &client, const std::string &command)
     
     std::string target = tokens[1];
     
-    // Check if target is a channel (starts with # or &)
     if (target[0] != '#' && target[0] != '&')
     {
-        // User mode - not implemented for this project
         server.sendToClient(client.GetFd(), ":server 502 " + client.getNickname() + " :Cannot change mode for other users\r\n");
         return;
     }
     
-    // Channel mode handling
     Channel *channel = server.findChannel(target);
     if (!channel)
     {
@@ -32,14 +29,12 @@ void Cmd::handleMODE(Server &server, Client &client, const std::string &command)
         return;
     }
     
-    // Check if client is in the channel
     if (!channel->hasClient(&client))
     {
         server.sendToClient(client.GetFd(), ":server 442 " + client.getNickname() + " " + target + " :You're not on that channel\r\n");
         return;
     }
     
-    // If no mode string provided, return current channel modes
     if (tokens.size() == 2)
     {
         std::string modeString = "+";
@@ -52,7 +47,6 @@ void Cmd::handleMODE(Server &server, Client &client, const std::string &command)
         return;
     }
     
-    // Check if client is operator for mode changes
     if (!channel->isOperator(&client))
     {
         server.sendToClient(client.GetFd(), ":server 482 " + client.getNickname() + " " + target + " :You're not channel operator\r\n");
@@ -62,14 +56,12 @@ void Cmd::handleMODE(Server &server, Client &client, const std::string &command)
     std::string modeString = tokens[2];
     std::vector<std::string> modeParams;
     
-    // Collect mode parameters
     for (size_t i = 3; i < tokens.size(); i++)
     {
         modeParams.push_back(tokens[i]);
     }
     
-    // Process mode string
-    bool adding = true; // Default to adding modes
+    bool adding = true;
     size_t paramIndex = 0;
     std::string appliedModes = "";
     std::string appliedParams = "";
@@ -89,22 +81,21 @@ void Cmd::handleMODE(Server &server, Client &client, const std::string &command)
             continue;
         }
         
-        // Handle specific modes
         switch (modeChar)
         {
-            case 'i': // Invite-only
+            case 'i': 
                 channel->setInviteOnly(adding);
                 appliedModes += (adding ? "+" : "-");
                 appliedModes += "i";
                 break;
                 
-            case 't': // Topic restriction
+            case 't': 
                 channel->setTopicRestricted(adding);
                 appliedModes += (adding ? "+" : "-");
                 appliedModes += "t";
                 break;
                 
-            case 'k': // Channel key (password)
+            case 'k':
                 if (adding)
                 {
                     if (paramIndex < modeParams.size())
@@ -127,7 +118,7 @@ void Cmd::handleMODE(Server &server, Client &client, const std::string &command)
                 }
                 break;
                 
-            case 'l': // User limit
+            case 'l':
                 if (adding)
                 {
                     if (paramIndex < modeParams.size())
@@ -159,7 +150,7 @@ void Cmd::handleMODE(Server &server, Client &client, const std::string &command)
                 }
                 break;
                 
-            case 'o': // Operator privilege
+            case 'o': 
                 if (paramIndex < modeParams.size())
                 {
                     Client *targetClient = server.findClientByNickname(modeParams[paramIndex]);
@@ -208,11 +199,10 @@ void Cmd::handleMODE(Server &server, Client &client, const std::string &command)
         }
     }
     
-    // Broadcast mode change to all channel members if any modes were actually applied
     if (!appliedModes.empty())
     {
         std::string modeMsg = ":" + client.getNickname() + "!" + client.getUsername() + "@localhost MODE " + target + " " + appliedModes + appliedParams + "\r\n";
-        server.broadcastToChannel(channel, modeMsg, NULL); // Send to all members including the sender
+        server.broadcastToChannel(channel, modeMsg, NULL); 
         server.sendToClient(client.GetFd(), modeMsg);
     }
 }

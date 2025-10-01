@@ -14,17 +14,17 @@ Client::~Client()
     std::cout << YEL << "[client] destructor" << std::endl;
 };
 
-int Client::GetFd() //-> getter for fd
+int Client::GetFd()
 {
     return Fd;
 }
 
-void Client::SetFd(int fd) //-> setter for fd
+void Client::SetFd(int fd)
 {
     Fd = fd;
 }
 
-void Client::setIpAdd(std::string ipadd) //-> setter for ipadd
+void Client::setIpAdd(std::string ipadd) 
 {
     IPadd = ipadd;
 }
@@ -79,7 +79,7 @@ void Client::appendToBuffer(const std::string &data)
     buffer += data;
 }
 bool Client::hasCompleteCommand()
-{ // the npos indicate not found
+{ 
     return buffer.find("\n") != std::string::npos;
 }
 
@@ -94,7 +94,6 @@ std::string Client::extractCommand()
     std::string command = buffer.substr(0, pos);
     buffer.erase(0, pos + 1);
 
-    // Remove \r if present (IRC sends \r\n)
     if (!command.empty() && command[command.length() - 1] == '\r')
     {
         command.erase(command.length() - 1);

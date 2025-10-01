@@ -4,12 +4,10 @@
 
 Channel::Channel(const std::string &channelName) : name(channelName)
 {
-    // Empty topic by default
     topic = "";
     
-    // Initialize channel modes to default values
     inviteOnly = false;
-    topicRestricted = true; // Default: only operators can change topic
+    topicRestricted = true; 
     hasKey = false;
     key = "";
     hasUserLimit = false;
@@ -18,13 +16,11 @@ Channel::Channel(const std::string &channelName) : name(channelName)
 
 Channel::~Channel()
 {
-    // Don't delete clients - they're managed by Server
     clients.clear();
     operators.clear();
     inviteList.clear();
 }
 
-// Getters
 const std::string &Channel::getName() const
 {
     return name;
@@ -45,20 +41,17 @@ const std::vector<Client *> &Channel::getOperators() const
     return operators;
 }
 
-// Setters
 void Channel::setTopic(const std::string &newTopic)
 {
     topic = newTopic;
 }
 
-// Client management
 void Channel::addClient(Client *client)
 {
     if (!hasClient(client))
     {
         clients.push_back(client);
 
-        // First client becomes operator
         if (clients.size() == 1)
         {
             addOperator(client);
@@ -76,14 +69,12 @@ void Channel::removeClient(Client *client)
     std::cout << YEL << "Removing client " << client->getNickname()
               << " (fd:" << targetFd << ") from channel " << name << WHI << std::endl;
 
-    // Remove from clients list using FD comparison
     for (size_t i = 0; i < clients.size();)
     {
         if (clients[i] && clients[i]->GetFd() == targetFd)
         {
             std::cout << GRE << "  -> Found and removing client at index " << i << WHI << std::endl;
             clients.erase(clients.begin() + i);
-            // Don't increment i since we removed an element
         }
         else
         {
@@ -91,14 +82,12 @@ void Channel::removeClient(Client *client)
         }
     }
 
-    // Remove from operators list using FD comparison
     for (size_t i = 0; i < operators.size();)
     {
         if (operators[i] && operators[i]->GetFd() == targetFd)
         {
             std::cout << GRE << "  -> Found and removing operator at index " << i << WHI << std::endl;
             operators.erase(operators.begin() + i);
-            // Don't increment i since we removed an element
         }
         else
         {
@@ -109,7 +98,6 @@ void Channel::removeClient(Client *client)
     std::cout << "Channel " << name << " now has " << clients.size() << " clients, "
               << operators.size() << " operators" << std::endl;
 
-    // Auto-promote if needed
     if (wasOperator && operators.empty() && !clients.empty())
     {
         Client *newOp = clients.front();
@@ -155,7 +143,6 @@ bool Channel::hasClientByFd(int fd) const
     return false;
 }
 
-// Operator management
 void Channel::addOperator(Client *client)
 {
     if (hasClient(client) && !isOperator(client))
@@ -171,13 +158,11 @@ void Channel::removeOperator(Client *client)
         
     int targetFd = client->GetFd();
     
-    // Remove from operators list using FD comparison
     for (size_t i = 0; i < operators.size();)
     {
         if (operators[i] && operators[i]->GetFd() == targetFd)
         {
             operators.erase(operators.begin() + i);
-            // Don't increment i since we removed an element
         }
         else
         {
@@ -203,7 +188,6 @@ bool Channel::isOperator(Client *client) const
     return false;
 }
 
-// Utility
 size_t Channel::getClientCount() const
 {
     return clients.size();
@@ -222,7 +206,6 @@ std::string Channel::getClientsList() const
         if (i > 0)
             list += " ";
 
-        // Add @ prefix for operators
         if (isOperator(clients[i]))
         {
             list += "@";
@@ -232,7 +215,6 @@ std::string Channel::getClientsList() const
     return list;
 }
 
-// Mode management implementations
 void Channel::addToInviteList(Client *client)
 {
     if (client && std::find(inviteList.begin(), inviteList.end(), client) == inviteList.end())
@@ -256,17 +238,39 @@ bool Channel::isInvited(Client *client) const
     return std::find(inviteList.begin(), inviteList.end(), client) != inviteList.end();
 }
 
-// Mode getters
-bool Channel::isInviteOnly() const { return inviteOnly; }
-bool Channel::isTopicRestricted() const { return topicRestricted; }
-bool Channel::hasChannelKey() const { return hasKey; }
-const std::string &Channel::getKey() const { return key; }
-bool Channel::hasChannelUserLimit() const { return hasUserLimit; }
-size_t Channel::getUserLimit() const { return userLimit; }
+bool Channel::isInviteOnly() const 
+{ 
+    return inviteOnly;
+}
+bool Channel::isTopicRestricted() const 
+{ 
+    return topicRestricted; 
+}
+bool Channel::hasChannelKey() const 
+{ 
+    return hasKey; 
+}
+const std::string &Channel::getKey() const 
+{ 
+    return key; 
+}
+bool Channel::hasChannelUserLimit() const 
+{ 
+    return hasUserLimit; 
+}
+size_t Channel::getUserLimit() const 
+{ 
+    return userLimit; 
+}
 
-// Mode setters
-void Channel::setInviteOnly(bool value) { inviteOnly = value; }
-void Channel::setTopicRestricted(bool value) { topicRestricted = value; }
+void Channel::setInviteOnly(bool value) 
+{ 
+    inviteOnly = value; 
+}
+void Channel::setTopicRestricted(bool value) 
+{ 
+    topicRestricted = value; 
+}
 
 void Channel::setKey(const std::string &password)
 {

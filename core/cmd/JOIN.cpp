@@ -45,7 +45,6 @@ void Cmd::handleJOIN(Server &server, Client &client, const std::string &command)
 		std::cout << std::endl;
 	}
 
-	// Check if client is already in channel (compare by fd)
 	if (channel->hasClient(&client))
 	{
 		std::cout << RED << "DUPLICATE JOIN DETECTED for " << client.getNickname() << WHI << std::endl;
@@ -54,7 +53,6 @@ void Cmd::handleJOIN(Server &server, Client &client, const std::string &command)
 	}
 
 	int is_inv = 0;
-	// Check mode permissions to see if channel is or isnt invite only , if it is check if user is in the invite list
 	if (channel->isInviteOnly() && !channel->isInvited(&client))
 	{
 		std::cout << RED << "USER: " << client.getNickname() << " Not in invite list"<< WHI << std::endl;
@@ -78,7 +76,6 @@ void Cmd::handleJOIN(Server &server, Client &client, const std::string &command)
 		return;
 	}
 
-	// Check channel size limit
 	if (channel->hasChannelUserLimit() && channel->getUserLimit() >= channel->getClientCount())
 	{
 		std::cout << RED << "USER: " << client.getNickname() << " Channel is full"<< WHI << std::endl;
@@ -86,28 +83,23 @@ void Cmd::handleJOIN(Server &server, Client &client, const std::string &command)
 		return;
 	}
 	
-	// Add client to channel
 	channel->addClient(&client);
 
-	// Send JOIN messages
 	std::string joinMsg = ":" + client.getNickname() + "!" + client.getUsername() + "@localhost JOIN " + channelName + "\r\n";
 	server.sendToClient(client.GetFd(), joinMsg);
 	server.broadcastToChannel(channel, joinMsg, &client);
 
-	// TODO: Handle channel topic when new use enter
-	// Send topic if exists, otherwise tell client there's no topic
+
 	if (!channel->getTopic().empty())
 	{
 		server.sendToClient(client.GetFd(), ":server 332 " + client.getNickname() + " " + channelName + " :" + channel->getTopic() + "\r\n");
-		// optional: if you keep who/time info in channel
-		// sendToClient(client.GetFd(), ":server 333 " + client.getNickname() + " " + channelName + " <setter> <timestamp>\r\n");
+		
 	}
 	else
 	{
 		server.sendToClient(client.GetFd(), ":server 331 " + client.getNickname() + " " + channelName + " :No topic is set\r\n");
 	}
 
-	// Send names list
 	server.sendToClient(client.GetFd(), ":server 353 " + client.getNickname() + " = " + channelName + " :" + channel->getClientsList() + "\r\n");
 	server.sendToClient(client.GetFd(), ":server 366 " + client.getNickname() + " " + channelName + " :End of /NAMES list\r\n");
 

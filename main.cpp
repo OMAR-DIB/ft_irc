@@ -16,7 +16,6 @@ int main(int argc, char **argv)
         std::cerr << "Error Port : must be between 1 and 65535." << std::endl;
         return 1;
     }
-    // std::string password = std::string(argv[2]);
     std::string password = argv[2];
     if (!Helper::isPasswordValid(password))
     {
@@ -28,7 +27,7 @@ int main(int argc, char **argv)
     try
     {
 
-        ser.setPassword(password); // Set the password
+        ser.setPassword(password); 
 
         signal(SIGINT, Server::SignalHandler);
         signal(SIGQUIT, Server::SignalHandler);
